@@ -1,0 +1,54 @@
+# Subscriptions: recurring bills and renewals.
+#
+# Taskmaster's subscription_update.py runs every night: it moves a passed
+# next_due_date forward by one cycle and, on the due day, adds a pending
+# "Subscription due: <name>" event - mark that event Done in Events.
+
+title: Subscriptions
+icon: wallet
+description: Recurring bills, subscriptions and renewals
+file: subscription.md
+
+collections:
+  - id: subscriptions
+    label: Subscriptions
+    path: subscriptions
+    id_from: name
+    note: "Due dates move forward automatically each night (Taskmaster)."
+
+    fields:
+      - { key: name, type: text, required: true }
+      - { key: amount, type: money }
+      - { key: cycle, type: select, options: [monthly, quarterly, yearly, weekly], allow_new: true,
+          default: monthly, required: true, help: 'Also "84 days", "6 months", "3 years"' }
+      - { key: next_due_date, label: Next due, type: date, required: true }
+      - { key: category, type: select, options: data }
+      - { key: account, type: select, options: data }
+      - { key: status, type: select, options: [active, cancelled], default: active, required: true }
+
+    list:
+      title: name
+      subtitle: [next_due_date, amount, cycle, account]
+      badges: [status]
+      search: [name, category, account]
+      filters: [category, account, cycle, status]
+      sort: [next_due_date, name]
+      groups:
+        - { label: Due in 7 days, where: { status: active, next_due_date: { lte: today+7 } } }
+        - { label: Active, where: { status: active } }
+        - { label: Cancelled, where: { status: cancelled }, sort: [name], collapsed: true }
+
+    actions:
+      - { id: cancel, label: Cancel, icon: "✕", set: { status: cancelled }, when: { status: active },
+          confirm: "Mark this subscription as cancelled?" }
+      - { id: reactivate, label: Reactivate, icon: "↺", set: { status: active }, when: { status: cancelled } }
+
+    agenda:
+      # due today shows up through Taskmaster's pending event, like the Telegram agenda
+      - { section: overdue, date: next_due_date, where: { status: active, next_due_date: { lt: today } } }
+      - { section: upcoming, date: next_due_date, where: { status: active, next_due_date: { gt: today, lte: today+7 } } }
+
+    widgets:
+      - { label: Active, count: { status: active } }
+      - { label: Per month, sum: amount, per_month_by: cycle, where: { status: active }, format: money }
+      - { label: Due in 7 days, count: { status: active, next_due_date: { gte: today, lte: today+7 } }, tone: warn }

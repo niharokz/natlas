@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{TITLE}}</title>
+<meta name="theme-color" content="#070b0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="{{TITLE}}">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/icons/favicon.png?v={{VERSION}}">
+<link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png?v={{VERSION}}">
+<link rel="stylesheet" href="/assets/vendor/nss.min.css?v={{VERSION}}">
+<link rel="stylesheet" href="/assets/natlas.css?v={{VERSION}}">
+<!-- app.js registers the Alpine component, so it must run before Alpine starts -->
+<script defer src="/assets/app.js?v={{VERSION}}"></script>
+<script defer src="/assets/vendor/alpine.min.js?v={{VERSION}}"></script>
+</head>
+<body>
+<div class="app" x-data="natlas" x-init="init()" data-version="{{VERSION}}" x-cloak>
+
+  <!-- ═════════ LOGIN ═════════ -->
+  <template x-if="ready && !authed">
+    <main class="login">
+      <form @submit.prevent="login()">
+        <p class="brand">~/natlas<span>_</span></p>
+        <label>Username
+          <input x-model="loginForm.username" autocomplete="username" autocapitalize="off" required>
+        </label>
+        <label>Password
+          <input type="password" x-model="loginForm.password" autocomplete="current-password" required>
+        </label>
+        <p class="error" x-show="loginError" x-text="loginError"></p>
+        <button :disabled="busy" x-text="busy ? 'Signing in…' : 'Sign in'"></button>
+      </form>
+    </main>
+  </template>
+
+  <!-- ═════════ APP ═════════ -->
+  <template x-if="ready && authed">
+    <div class="shell" :class="{selecting: selecting}">
+
+      <!-- side rail (desktop) -->
+      <nav class="rail" aria-label="Main">
+        <p class="brand"><a href="#/today">~/natlas<span>_</span></a></p>
+        <a href="#/today" :aria-current="route.view === 'today' ? 'page' : null">
+          <span class="ico" x-html="icon('home')"></span>Today
+        </a>
+        <template x-for="p in app.plugins" :key="p.id">
+          <a :href="'#/p/' + p.id" :aria-current="route.plugin === p.id ? 'page' : null">
+            <span class="ico" x-html="icon(p.icon)"></span><span x-text="p.title"></span>
+          </a>
+        </template>
+        <div class="rail-foot">
+          <button class="ghost" @click="cycleTheme()" :title="'Theme: ' + theme">
+            <span class="ico" x-html="icon(theme === 'light' ? 'sun' : theme === 'dark' ? 'moon' : 'auto')"></span>
+            <span x-text="'Theme: ' + theme"></span>
+          </button>
+          <button class="ghost" @click="logout()"><span class="ico" x-html="icon('logout')"></span>Log out</button>
+        </div>
+      </nav>
+
+      <div class="main">
+        <p class="offline" x-show="offline">Offline - showing the last loaded data. Editing is paused.</p>
+
+        <!-- ───── TODAY ───── -->
+        <template x-if="route.view === 'today'">
+          <section class="view">
+            <header class="view-head">
+              <h1 x-text="todayTitle()"></h1>
+              <button class="ghost icon-only" @click="loadToday(true)" title="Refresh"><span class="ico" x-html="icon('refresh')"></span></button>
+            </header>
+
+            <template x-if="!todayLoaded"><div class="skeleton"><i></i><i></i><i></i></div></template>
+
+            <template x-if="todayLoaded">
+              <div>
+                <template x-for="sec in agendaSections()" :key="sec.key">
+                  <section class="group">
+                    <h2><span x-text="sec.label"></span> <small x-text="sec.items.length"></small></h2>
+                    <ul class="rows">
+                      <template x-for="it in sec.items" :key="it.plugin + it.collection + it.id">
+                        <li class="row" :class="sec.key">
+                          <button class="row-main" @click="openFromAgenda(it)">
+                            <span class="ico dim" x-html="icon(it.icon)"></span>
+                            <span class="row-text">
+                              <strong x-text="it.title"></strong>
+                              <small x-text="agendaSub(it)"></small>
+                            </span>
+                          </button>
+                          <template x-for="a in it.actions" :key="a.id">
+                            <button class="act" @click="runAgendaAction(it, a)" :title="a.label">
+                              <span x-text="a.icon || ''"></span> <span class="act-label" x-text="a.label"></span>
+                            </button>
+                          </template>
+                        </li>
+                      </template>
+                    </ul>
+                  </section>
+                </template>
+                <p class="empty" x-show="agendaSections().length === 0">Nothing due. Enjoy the day.</p>
+
+                <h2 class="stats-title">At a glance</h2>
+                <div class="stats">
+                  <template x-for="s in today.stats" :key="s.plugin">
+                    <a class="stat-card" :href="'#/p/' + s.plugin">
+                      <p><span class="ico dim" x-html="icon(s.icon)"></span> <span x-text="s.title"></span></p>
+                      <p class="error" x-show="s.error" x-text="s.error"></p>
+                      <dl>
+                        <template x-for="w in s.widgets" :key="w.label">
+                          <div :class="w.value ? w.tone : ''">
+                            <dt x-text="w.label"></dt>
+                            <dd x-text="fmtWidget(w)"></dd>
+                          </div>
+                        </template>
+                      </dl>
+                    </a>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </section>
+        </template>
+
+        <!-- ───── PLUGIN ───── -->
+        <template x-if="route.view === 'plugin' && curPlugin().id">
+          <section class="view">
+            <header class="view-head">
+              <h1 x-text="curPlugin().title"></h1>
+              <div class="head-actions">
+                <button class="ghost icon-only" x-show="curColl().list.filters?.length || curColl().list.search?.length"
+                        @click="showFilters = !showFilters" :class="{on: showFilters || activeFilterCount()}" title="Search and filter">
+                  <span class="ico" x-html="icon('search')"></span>
+                  <small x-show="activeFilterCount()" x-text="activeFilterCount()"></small>
+                </button>
+                <button class="ghost icon-only" @click="reload()" title="Refresh"><span class="ico" x-html="icon('refresh')"></span></button>
+              </div>
+            </header>
+
+            <!-- collection tabs (Health: Planned / Completed / Gym / Profile) -->
+            <nav class="tabs" x-show="curPlugin().collections?.length > 1">
+              <template x-for="c in (curPlugin().collections || [])" :key="c.id">
+                <a :href="'#/p/' + curPlugin().id + '/' + c.id" :aria-current="c.id === route.coll ? 'page' : null" x-text="c.label"></a>
+              </template>
+            </nav>
+
+            <p class="note" x-show="cur()?.note" x-text="cur()?.note"></p>
+
+            <!-- search + filters -->
+            <div class="filters" x-show="showFilters" x-transition>
+              <input type="search" x-model="search" placeholder="Search…" x-show="curColl().list.search?.length">
+              <template x-for="key in (curColl().list.filters || [])" :key="key">
+                <select x-model="filters[key]">
+                  <option value="" x-text="'All ' + fieldLabel(curColl(), key).toLowerCase()"></option>
+                  <template x-for="o in (cur()?.options[key] || [])" :key="o"><option :value="o" x-text="o"></option></template>
+                </select>
+              </template>
+              <button class="ghost" @click="clearFilters()" x-show="activeFilterCount()">Clear</button>
+            </div>
+
+            <!-- quick add -->
+            <form class="quick" x-show="curColl().quick_add && !curColl().readonly && !offline" @submit.prevent="quickAdd()">
+              <input x-model="quick" :placeholder="'Quick add: ' + (curColl().quick_add?.hint || 'name')" enterkeyhint="done">
+              <button :disabled="!quick.trim()" title="Add"><span class="ico" x-html="icon('plus')"></span></button>
+            </form>
+
+            <template x-if="!cur()"><div class="skeleton"><i></i><i></i><i></i><i></i></div></template>
+
+            <!-- single record (Health profile) -->
+            <template x-if="cur() && curColl().kind === 'record'">
+              <div class="record-view">
+                <button class="primary" @click="openRecord(curColl(), cur()?.records?.[0])">Edit</button>
+                <dl class="facts">
+                  <template x-for="f in visibleFields(curColl())" :key="f.key">
+                    <div><dt x-text="f.label"></dt><dd x-text="display(curColl(), f.key, cur()?.records?.[0]) || '—'"></dd></div>
+                  </template>
+                </dl>
+              </div>
+            </template>
+
+            <!-- summary (Inventory) -->
+            <template x-if="cur() && curColl().summary">
+              <details class="summary">
+                <summary>Summary <small x-text="visibleRecords().length + ' items'"></small></summary>
+                <label class="inline">Group by
+                  <select x-model="summaryBy">
+                    <template x-for="k in curColl().summary?.group_by || []" :key="k"><option :value="k" x-text="fieldLabel(curColl(), k)"></option></template>
+                  </select>
+                </label>
+                <table>
+                  <thead><tr>
+                    <th x-text="fieldLabel(curColl(), summaryBy)"></th><th class="num">Count</th>
+                    <template x-for="k in curColl().summary?.sum || []" :key="k"><th class="num" x-text="fieldLabel(curColl(), k)"></th></template>
+                  </tr></thead>
+                  <tbody>
+                    <template x-for="row in summaryRows()" :key="row.label">
+                      <tr :class="{total: row.total}">
+                        <td x-text="row.label"></td><td class="num" x-text="row.count"></td>
+                        <template x-for="k in curColl().summary?.sum || []" :key="k"><td class="num" x-text="fmtField(curColl(), k, row.sums[k])"></td></template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </details>
+            </template>
+
+            <!-- the list -->
+            <template x-if="cur() && curColl().kind === 'list'">
+              <div>
+                <template x-for="g in groupedRecords()" :key="g.label">
+                  <section class="group">
+                    <h2 x-show="g.label">
+                      <button class="group-toggle" @click="toggleGroup(g)">
+                        <span class="chev" :class="{open: !isCollapsed(g)}">▸</span>
+                        <span x-text="g.label"></span> <small x-text="g.records.length"></small>
+                      </button>
+                    </h2>
+                    <ul class="rows" x-show="!isCollapsed(g)">
+                      <template x-for="r in g.records" :key="r._id">
+                        <li class="row" :class="{picked: selected[r._id], muted: isMuted(curColl(), r)}"
+                            @pointerdown="pressStart($event, r)" @pointermove="pressMove($event)" @pointerup="pressEnd($event, r)"
+                            @pointercancel="pressCancel()" @contextmenu.prevent="onContextMenu(r)">
+                          <span class="swipe-hint right" x-text="primaryAction(curColl(), r)?.label || ''"></span>
+                          <span class="swipe-hint left">Edit</span>
+                          <div class="row-inner">
+                            <input type="checkbox" class="pick" :checked="!!selected[r._id]" @click.stop="toggleSelect(r)"
+                                   x-show="!curColl().readonly" aria-label="Select">
+                            <button class="row-main" @click="rowClick(r)">
+                              <span class="row-text">
+                                <strong x-text="display(curColl(), curColl().list.title, r) || '(untitled)'"></strong>
+                                <small x-text="subtitle(curColl(), r)"></small>
+                              </span>
+                            </button>
+                            <span class="badges">
+                              <template x-for="b in badges(curColl(), r)" :key="b.key">
+                                <button class="badge" :class="b.tone" :disabled="!b.editable"
+                                        @click.stop="openMenu($event, curColl(), r, b.key)" x-text="b.text"></button>
+                              </template>
+                            </span>
+                            <template x-if="primaryAction(curColl(), r)">
+                              <button class="act" @click.stop="runAction(curColl(), r, primaryAction(curColl(), r))"
+                                      :title="primaryAction(curColl(), r)?.label">
+                                <span x-text="primaryAction(curColl(), r)?.icon || ''"></span>
+                                <span class="act-label" x-text="primaryAction(curColl(), r)?.label"></span>
+                              </button>
+                            </template>
+                          </div>
+                        </li>
+                      </template>
+                    </ul>
+                  </section>
+                </template>
+                <p class="empty" x-show="visibleRecords().length === 0"
+                   x-text="cur()?.records?.length ? 'Nothing matches the search or filters.' : 'Nothing here yet.'"></p>
+              </div>
+            </template>
+
+            <button class="fab" x-show="curColl().kind === 'list' && !curColl().readonly && !selecting && !offline" @click="openNew(curColl())" title="Add">
+              <span class="ico" x-html="icon('plus')"></span>
+            </button>
+          </section>
+        </template>
+      </div>
+
+      <!-- bottom bar (phone) -->
+      <nav class="bottom" aria-label="Main">
+        <a href="#/today" :aria-current="route.view === 'today' ? 'page' : null">
+          <span class="ico" x-html="icon('home')"></span><span>Today</span>
+        </a>
+        <template x-for="p in app.plugins.slice(0, 3)" :key="p.id">
+          <a :href="'#/p/' + p.id" :aria-current="route.plugin === p.id ? 'page' : null">
+            <span class="ico" x-html="icon(p.icon)"></span><span x-text="p.title"></span>
+          </a>
+        </template>
+        <button @click="moreOpen = true" :class="{on: app.plugins.slice(3).some(p => p.id === route.plugin)}">
+          <span class="ico" x-html="icon('more')"></span><span>More</span>
+        </button>
+      </nav>
+
+      <!-- "More" sheet (phone) -->
+      <div class="backdrop" x-show="moreOpen" x-transition.opacity @click="moreOpen = false"></div>
+      <div class="more-sheet" x-show="moreOpen" x-transition>
+        <template x-for="p in app.plugins.slice(3)" :key="p.id">
+          <a :href="'#/p/' + p.id" @click="moreOpen = false"><span class="ico" x-html="icon(p.icon)"></span><span x-text="p.title"></span></a>
+        </template>
+        <button class="ghost" @click="cycleTheme()"><span class="ico" x-html="icon(theme === 'light' ? 'sun' : theme === 'dark' ? 'moon' : 'auto')"></span><span x-text="'Theme: ' + theme"></span></button>
+        <button class="ghost" @click="logout()"><span class="ico" x-html="icon('logout')"></span>Log out <small x-text="user"></small></button>
+      </div>
+
+      <!-- selection bar -->
+      <div class="select-bar" x-show="selecting" x-transition>
+        <span><strong x-text="selectedCount()"></strong> selected</span>
+        <template x-for="a in bulkActions()" :key="a.id">
+          <button @click="bulkAction(a)"><span x-text="a.icon || ''"></span> <span x-text="a.label"></span></button>
+        </template>
+        <template x-for="f in bulkFields()" :key="f.key">
+          <select @change="bulkSet(f.key, $event.target.value); $event.target.value = ''">
+            <option value="" x-text="'Set ' + f.label.toLowerCase() + '…'"></option>
+            <template x-for="o in (cur()?.options[f.key] || f.options || [])" :key="o"><option :value="o" x-text="o"></option></template>
+          </select>
+        </template>
+        <button class="ghost" @click="clearSelection()">Cancel</button>
+      </div>
+
+      <!-- badge menu -->
+      <div class="menu-catch" x-show="menu.open" @click="menu.open = false"></div>
+      <ul class="menu" x-show="menu.open" :style="`left:${menu.x}px;top:${menu.y}px`" x-transition.opacity>
+        <template x-for="o in menu.options" :key="o">
+          <li><button :class="{on: o === menu.current}" @click="pickMenu(o)" x-text="o"></button></li>
+        </template>
+      </ul>
+
+      <!-- record sheet -->
+      <dialog class="sheet" x-ref="sheet" @close="sheetClosed()" @cancel.prevent="closeSheet()">
+        <template x-if="sheet.coll">
+          <form @submit.prevent="saveSheet()" novalidate>
+            <header>
+              <h2 x-text="sheetTitle()"></h2>
+              <button type="button" class="ghost icon-only" @click="closeSheet()" title="Close"><span class="ico" x-html="icon('x')"></span></button>
+            </header>
+            <p class="error" x-show="sheet.error" x-text="sheet.error"></p>
+            <p class="conflict" x-show="sheet.conflict">
+              This record changed elsewhere while you were editing (probably Taskmaster).
+              <button type="button" @click="reloadSheet()">Reload it</button>
+            </p>
+
+            <div class="sheet-body">
+              <template x-for="f in visibleFields(sheet.coll)" :key="f.key">
+                <div class="field" :class="'t-' + f.type">
+                  <template x-if="f.type === 'bool'">
+                    <label class="check"><input type="checkbox" role="switch" x-model="sheet.values[f.key]" :disabled="isLocked(f)"> <span x-text="f.label"></span></label>
+                  </template>
+                  <template x-if="f.type !== 'bool'">
+                    <label>
+                      <span><span x-text="f.label"></span><b x-show="f.required" title="required"> *</b></span>
+                      <template x-if="isLocked(f)">
+                        <output x-text="display(sheet.coll, f.key, sheet.record || {}) || '—'"></output>
+                      </template>
+                      <template x-if="!isLocked(f) && f.type === 'textarea'">
+                        <textarea x-model="sheet.values[f.key]" rows="3" :placeholder="f.placeholder || ''"></textarea>
+                      </template>
+                      <template x-if="!isLocked(f) && f.type === 'list'">
+                        <textarea x-model="sheet.values[f.key]" rows="5" :placeholder="f.placeholder || 'One per line'"></textarea>
+                      </template>
+                      <template x-if="!isLocked(f) && f.type === 'select' && !f.allow_new">
+                        <select x-model="sheet.values[f.key]">
+                          <option value="" x-show="!f.required">—</option>
+                          <template x-for="o in optionsFor(sheet.coll, f, sheet.values[f.key])" :key="o"><option :value="o" x-text="o" :selected="o === sheet.values[f.key]"></option></template>
+                        </select>
+                      </template>
+                      <template x-if="!isLocked(f) && f.type === 'select' && f.allow_new">
+                        <span class="combo">
+                          <input x-model="sheet.values[f.key]" :list="'dl-' + f.key" :placeholder="f.placeholder || 'Pick or type new'" autocomplete="off">
+                          <datalist :id="'dl-' + f.key">
+                            <template x-for="o in optionsFor(sheet.coll, f, '')" :key="o"><option :value="o"></option></template>
+                          </datalist>
+                        </span>
+                      </template>
+                      <template x-if="!isLocked(f) && ['text','url','number','money','date','anniversary'].includes(f.type)">
+                        <span class="with-unit">
+                          <input :type="inputType(f)" x-model="sheet.values[f.key]" :placeholder="f.placeholder || ''"
+                                 :inputmode="['number','money'].includes(f.type) ? 'decimal' : null" step="any">
+                          <small x-show="f.unit || f.type === 'money'" x-text="f.type === 'money' ? app.currency : f.unit"></small>
+                        </span>
+                      </template>
+                      <small class="help" x-show="f.help && !sheet.errors[f.key]" x-text="f.help"></small>
+                      <small class="field-error" x-show="sheet.errors[f.key]" x-text="sheet.errors[f.key]"></small>
+                    </label>
+                  </template>
+                </div>
+              </template>
+
+              <template x-if="sheet.record && otherFields().length">
+                <details class="other">
+                  <summary>Other fields in the file</summary>
+                  <dl class="facts">
+                    <template x-for="o in otherFields()" :key="o.key"><div><dt x-text="o.key"></dt><dd x-text="o.value"></dd></div></template>
+                  </dl>
+                </details>
+              </template>
+            </div>
+
+            <footer>
+              <button type="submit" class="primary" x-show="!sheet.coll?.readonly" :disabled="sheet.saving || offline"
+                      x-text="sheet.saving ? 'Saving…' : (sheet.mode === 'new' ? 'Add' : 'Save')"></button>
+              <template x-if="sheet.mode === 'edit' && sheet.record">
+                <span class="sheet-actions">
+                  <template x-for="a in sheetActions()" :key="a.id">
+                    <button type="button" @click="runAction(sheet.coll, sheet.record, a)" :disabled="offline">
+                      <span x-text="a.icon || ''"></span> <span x-text="a.label"></span>
+                    </button>
+                  </template>
+                  <template x-if="sheet.coll?.order === 'manual'">
+                    <span class="move">
+                      <button type="button" @click="moveRecord(-1)" title="Move up">↑</button>
+                      <button type="button" @click="moveRecord(1)" title="Move down">↓</button>
+                    </span>
+                  </template>
+                  <button type="button" class="danger" x-show="!sheet.coll?.readonly && sheet.coll?.kind === 'list'" @click="deleteRecord()" :disabled="offline">Delete</button>
+                </span>
+              </template>
+            </footer>
+          </form>
+        </template>
+      </dialog>
+
+      <!-- ask dialog (actions that need input, e.g. "Completed" asks for time and cost) -->
+      <dialog class="ask" x-ref="ask" @close="ask.open = false">
+        <template x-if="ask.open">
+          <form @submit.prevent="submitAsk()" novalidate>
+            <h2 x-text="(ask.action?.label || '') + ': ' + ask.title"></h2>
+            <template x-for="f in ask.fields" :key="f.key">
+              <label>
+                <span x-text="f.label"></span>
+                <template x-if="f.type === 'select' && !f.allow_new">
+                  <select x-model="ask.values[f.key]">
+                    <option value="">—</option>
+                    <template x-for="o in (f.options || [])" :key="o"><option :value="o" x-text="o"></option></template>
+                  </select>
+                </template>
+                <template x-if="!(f.type === 'select' && !f.allow_new)">
+                  <input :type="inputType(f)" x-model="ask.values[f.key]" :placeholder="f.placeholder || ''"
+                         :inputmode="['number','money'].includes(f.type) ? 'decimal' : null">
+                </template>
+                <small class="field-error" x-show="ask.errors[f.key]" x-text="ask.errors[f.key]"></small>
+              </label>
+            </template>
+            <p class="error" x-show="ask.error" x-text="ask.error"></p>
+            <footer>
+              <button type="submit" class="primary" :disabled="ask.saving" x-text="ask.action?.label"></button>
+              <button type="button" class="ghost" @click="$refs.ask.close()">Cancel</button>
+            </footer>
+          </form>
+        </template>
+      </dialog>
+
+      <!-- toasts -->
+      <div class="toasts" aria-live="polite">
+        <template x-for="t in toasts" :key="t.id">
+          <div class="toast" :class="t.type">
+            <span x-text="t.text"></span>
+            <button x-show="t.hasUndo" @click="undo(t)">Undo</button>
+            <button class="ghost icon-only" @click="dropToast(t.id)" title="Dismiss"><span class="ico" x-html="icon('x')"></span></button>
+          </div>
+        </template>
+      </div>
+
+      <div class="update" x-show="updateReady">
+        New version available <button @click="applyUpdate()">Reload</button>
+      </div>
+    </div>
+  </template>
+</div>
+</body>
+</html>

@@ -1,0 +1,69 @@
+# Events: todos, deliveries, races and reminders.
+#
+# Works alongside Taskmaster (event_update.py, event_archive.py), which every night:
+#   - moves open one-time events that are past due to today with status "pending"
+#   - reopens closed recurring events (frequency != none) on their next date
+#   - archives closed one-time events older than 30 days to event.md.bck
+# So here "Done" only closes an event; Taskmaster handles everything after that.
+
+title: Events
+icon: calendar
+description: Todos, deliveries, races and reminders
+file: event.md
+
+collections:
+  - id: events
+    label: Events
+    path: events
+    id_from: title
+
+    # Taskmaster requires id, title, date, status, frequency and priority on every event,
+    # and only accepts the values listed below.
+    fields:
+      - { key: title, type: text, required: true }
+      - { key: date, type: date, required: true, default: today }
+      - { key: status, type: select, options: [open, pending, closed], default: open, required: true,
+          help: "pending = carried over by Taskmaster or waiting on something" }
+      - { key: priority, type: select, options: [high, medium, low], default: medium, required: true }
+      - { key: tags, label: Tag, type: select, options: data, placeholder: "todo, run, delivery…" }
+      - { key: frequency, type: select, options: [none, daily, weekly, monthly, quarterly, yearly],
+          default: none, required: true, help: "Recurring events are reopened by Taskmaster after you close them" }
+      - { key: note, type: textarea }
+      - { key: last_done, label: Last done, type: date, readonly: true, help: "Set by Taskmaster" }
+
+    list:
+      title: title
+      subtitle: [date, tags, note]
+      badges: [status, priority]
+      search: [title, tags, note]
+      filters: [tags, priority, status]
+      sort: [date, priority]
+      groups:
+        # same rule as Taskmaster's daily agenda: pending counts as overdue
+        - { label: Overdue, where: { any: [ { status: pending }, { status: open, date: { lt: today } } ] } }
+        - { label: Today, where: { status: open, date: today } }
+        - { label: Next 7 days, where: { status: open, date: { gt: today, lte: today+7 } } }
+        - { label: Later, where: { status: open } }
+        - { label: Closed, where: { status: closed }, sort: [-date], collapsed: true }
+
+    actions:
+      - { id: done, label: Done, icon: "✓", primary: true, set: { status: closed }, when: { status: [open, pending] } }
+      - { id: tomorrow, label: Tomorrow, icon: "→", set: { date: today+1, status: open }, when: { status: [open, pending] } }
+      - { id: reopen, label: Reopen, icon: "↺", set: { status: open }, when: { status: closed } }
+
+    quick_add:
+      title: title
+      date: date
+      tag: tags
+      priority: priority
+      hint: "Call bank tomorrow #todo !high"
+
+    agenda:
+      - { section: overdue, date: date, where: { any: [ { status: pending }, { status: open, date: { lt: today } } ] } }
+      - { section: today, date: date, where: { status: open, date: today } }
+      - { section: upcoming, date: date, where: { status: open, date: { gt: today, lte: today+7 } } }
+
+    widgets:
+      - { label: Open, count: { status: open } }
+      - { label: Pending, count: { status: pending }, tone: warn }
+      - { label: Due today, count: { status: [open, pending], date: { lte: today } }, tone: warn }

@@ -1,0 +1,39 @@
+# Birthdays: read-only. Taskmaster's birthday_sync.py rewrites birthdays.md
+# from Google Contacts every Monday, so edits belong in Google Contacts.
+
+title: Birthdays
+icon: gift
+description: Upcoming birthdays from Google Contacts
+file: birthdays.md
+
+collections:
+  - id: people
+    label: Birthdays
+    path: people
+    readonly: true
+    id_from: name
+    note: "Synced from Google Contacts · last sync {last_sync}"
+
+    fields:
+      - { key: name, type: text }
+      - { key: birthday, type: anniversary, help: "Year 0000 means the year is unknown" }
+
+    list:
+      title: name
+      subtitle: [birthday.next, birthday.age]
+      badges: [birthday.days]
+      search: [name]
+      sort: [birthday.days, name]
+      groups:
+        - { label: Today, where: { birthday.days: 0 } }
+        - { label: Next 7 days, where: { birthday.days: { lte: 7 } } }
+        - { label: Next 30 days, where: { birthday.days: { lte: 30 } } }
+        - { label: Later, where: { birthday.days: { gt: 30 } }, collapsed: true }
+
+    agenda:
+      - { section: today, date: birthday.next, where: { birthday.days: 0 } }
+      - { section: upcoming, date: birthday.next, where: { birthday.days: { gte: 1, lte: 7 } } }
+
+    widgets:
+      - { label: Today, count: { birthday.days: 0 }, tone: warn }
+      - { label: Next 7 days, count: { birthday.days: { lte: 7 } } }

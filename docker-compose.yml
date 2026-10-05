@@ -1,0 +1,31 @@
+# Natlas. All personal values (paths, user id, network) come from .env.
+services:
+  natlas:
+    build: .
+    image: natlas:local
+    container_name: natlas
+    restart: unless-stopped
+    init: true
+    user: "${PUID:-1000}:${PGID:-1000}"      # write data files as your user, not root
+    env_file: .env
+    volumes:
+      - ./natlas.yml:/config/natlas.yml:ro
+      - ./plugins:/app/plugins:ro            # edit a plugin.yml, then: docker compose restart natlas
+      - ${NATLAS_DATA_DIR:?set NATLAS_DATA_DIR in .env}:/data
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy
+    # No published port: your reverse proxy reaches natlas:8080 on the shared network.
+    # For a quick local test instead, add:  ports: ["8080:8080"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  proxy:
+    name: ${NATLAS_NETWORK:-homelab}
+    external: true

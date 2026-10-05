@@ -1,0 +1,95 @@
+# Health: race plan, race history, gym routine and profile.
+#
+# health.md can also feed a static health page generator (e.g. a Taskmaster
+# job), so keep the field names below stable if you use one.
+# Dates are stored as "27 Sep 2026" (format below) to keep that site unchanged.
+
+title: Health
+icon: heart
+description: Runs, race history, gym routine
+file: health.md
+
+collections:
+  - id: planned
+    label: Planned
+    path: runs.planned
+    id_from: name
+    fields:
+      - { key: name, type: text, required: true }
+      - { key: date, type: date, format: "02 Jan 2006" }
+      - { key: distance, type: select, options: [5K, 10K, 21K, 42K], allow_new: true }
+      - { key: location, type: select, options: data }
+      - { key: type, type: select, options: data, placeholder: "Race pace, Elevation…" }
+      - { key: registration, type: select, options: [To Do, Done], default: To Do }
+      - { key: reward, type: text }
+      - { key: link, type: url }
+    list:
+      title: name
+      subtitle: [date, distance, location]
+      badges: [registration]
+      search: [name, location, type]
+      sort: [date]
+    actions:
+      - { id: complete, label: Completed, icon: "🏁", primary: true, move_to: recent,
+          ask: [time, heart, cost, collectible] }
+      - { id: registered, label: Registered, icon: "✓", set: { registration: Done }, when: { registration: { ne: Done } } }
+    agenda:
+      - { section: today, date: date, where: { date: today } }
+      - { section: upcoming, date: date, where: { date: { gt: today, lte: today+7 } } }
+    widgets:
+      - { label: Planned, count: {} }
+      - { label: Not registered, count: { registration: { ne: Done } }, tone: warn }
+
+  - id: recent
+    label: Completed
+    path: runs.recent
+    id_from: name
+    new_at: start
+    fields:
+      - { key: name, type: text, required: true }
+      - { key: date, type: date, format: "02 Jan 2006" }
+      - { key: distance, type: select, options: [5K, 10K, 21K, 42K], allow_new: true }
+      - { key: location, type: select, options: data }
+      - { key: time, type: text, placeholder: "65:30", help: "minutes:seconds" }
+      - { key: heart, label: Heart zone, type: select, options: [Zone 1, Zone 2, Zone 3, Zone 4, Zone 5] }
+      - { key: cost, type: money }
+      - { key: collectible, type: text, placeholder: "medal, bib, tshirt" }
+      - { key: reward, type: text }
+      - { key: link, type: url }
+    list:
+      title: name
+      subtitle: [date, distance, time, heart]
+      search: [name, location, collectible, reward]
+      filters: [distance, heart]
+      sort: [-date]
+    widgets:
+      - { label: Races, count: {} }
+      - { label: Race spend, sum: cost, format: money }
+
+  - id: gym
+    label: Gym
+    path: gym
+    order: manual
+    id_from: day
+    fields:
+      - { key: day, type: text, required: true, placeholder: "DAY 1" }
+      - { key: title, type: text, placeholder: "LEG DAY" }
+      - { key: exercises, type: list, help: "One exercise per line" }
+      - { key: full_width, label: Wide card on the health site, type: bool }
+    list:
+      title: day
+      subtitle: [title, exercises]
+
+  - id: profile
+    label: Profile
+    kind: record
+    path: meta
+    fields:
+      - { key: title, type: text }
+      - { key: subtitle, type: text }
+      - { key: tagline, type: text }
+      - { key: footer, type: text }
+      - { key: last_updated, label: Last updated, type: text }
+      - { key: weight, type: text, placeholder: "67kg" }
+      - { key: height, type: text, placeholder: "167cm" }
+      - { key: body_fat, label: Body fat %, type: text }

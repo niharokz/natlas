@@ -1,0 +1,42 @@
+# Inventory: belongings, where they are and what they are worth.
+# Dropdowns for type and storage learn their values from your data - type a
+# new one in the form to add it.
+
+title: Inventory
+icon: box
+description: Belongings, condition and where they are kept
+file: inventory.csv
+
+collections:
+  - id: items
+    label: Inventory
+    id_from: name
+    fields:
+      - { key: name, type: text, required: true }
+      - { key: type, type: select, options: data }
+      - { key: purpose, type: text }
+      - { key: condition, type: select, options: [Premium, Excellent, Good, Used, Worn, Replace], default: Good }
+      - { key: storage, label: Kept in, type: select, options: data }
+      - { key: price, label: Value, type: money }
+      - { key: weight, type: number, unit: kg }
+
+    list:
+      title: name
+      subtitle: [type, storage, purpose]
+      badges: [condition]
+      search: [name, type, purpose, storage]
+      filters: [storage, type, condition]
+      sort: [storage, type, name]
+
+    actions:
+      - { id: replace, label: Needs replacing, icon: "⚠", set: { condition: Replace }, when: { condition: { ne: Replace } } }
+
+    summary:
+      group_by: [storage, type, condition]
+      sum: [price, weight]
+
+    widgets:
+      - { label: Items, count: {} }
+      - { label: Value, sum: price, format: money }
+      - { label: Weight (kg), sum: weight }
+      - { label: To replace, count: { condition: Replace }, tone: warn }

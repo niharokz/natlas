@@ -1,93 +1,229 @@
-# natlas
+# Natlas
 
+**A small, self-hosted app for your personal lists, backed by plain YAML and CSV files.**
 
+Natlas gives you a fast, phone-friendly web app over files you already keep, for example in an Obsidian vault. There is no database. Each tab reads and writes one human-readable file, so your data stays greppable, diffable, and editable by hand or by your own scripts.
 
-## Getting started
+Every tab is a plugin, and a plugin is **one YAML file**: fields, dropdowns, list layout, one-tap actions and dashboard numbers. Adding a new kind of data needs no code.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+- **Single Go binary.** About 10 MB, starts instantly, uses about 10 MB of RAM. One dependency (YAML), vendored.
+- **Installable app (PWA).** Bottom navigation on phones, swipe gestures, offline read-only mode.
+- **Plays well with other writers.** It edits only the record you changed, keeps comments and unknown fields, never re-sorts your file, and refuses to overwrite a record that changed underneath you.
+- **No build step for the UI.** Alpine.js and the [nss](https://gitlab.com/niharokz/nss) stylesheet are vendored. Light and dark themes follow your system.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+---
 
-## Add your files
+## What you can do
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+| | |
+|---|---|
+| **Today screen** | Overdue, today and next 7 days from every plugin in one list, with a Done button on each item, plus a row of numbers per plugin. |
+| **One-tap actions** | Buttons such as Done, Tomorrow, Cancel or Completed, defined per plugin. |
+| **Change in place** | Tap a badge (`open`, `high`, `Good`…) to pick a new value without opening the form. |
+| **Swipe** | Swipe right runs the main action; swipe left opens the form. |
+| **Bulk edit** | Long-press (or tick, on desktop) several rows, then apply an action or set a field on all of them. |
+| **Undo** | Every change shows an Undo button for a few seconds. |
+| **Quick add** | `Call bank tomorrow #todo !high` sets the title, date, tag and priority in one line. |
+| **Edit form** | A full-screen sheet on phones or a side panel on desktop, with per-field validation messages. |
+| **Search, filters, groups** | Lists are split into sections (Overdue / Today / Later / Closed…). Filters and search are one tap away. |
+| **Summary** | Totals grouped by any field (for example, inventory value per storage place). |
+
+## Included plugins
+
+| Plugin | File | Highlights |
+|---|---|---|
+| **Events** | `event.md` | Todos and reminders, grouped Overdue / Today / Next 7 days / Later / Closed. Done, Tomorrow and Reopen actions, smart quick add. |
+| **Subscriptions** | `subscription.md` | Recurring bills, "due in 7 days", monthly spend across any cycle (`monthly`, `yearly`, `84 days`…). |
+| **Birthdays** | `birthdays.md` | Read-only, sorted by next birthday, shows the age they turn. |
+| **Health** | `health.md` | Planned races (with a "Completed" action that asks for time and cost and moves the race to history), race history, gym routine (manual order), and a profile record. |
+| **Inventory** | `inventory.csv` | Belongings, condition and storage, with value and weight totals. |
+
+Turn plugins on and off, and choose their menu order, in `natlas.yml`.
+
+---
+
+## Quick start
+
+### Try it locally (Go 1.24+)
+
+```bash
+sh scripts/dev.sh        # open http://localhost:8080 and log in with demo / demo
+```
+
+This runs against a temporary copy of `examples/data/`, so nothing you click is permanent.
+
+### Run with Docker
+
+```bash
+git clone <this repo> natlas && cd natlas
+cp .env.example .env              # login, secret key, data folder, timezone
+cp natlas.example.yml natlas.yml  # app title, currency, enabled plugins
+openssl rand -hex 32              # paste into NATLAS_SECRET_KEY in .env
+docker compose up -d --build
+```
+
+The container joins an existing Docker network (`NATLAS_NETWORK`, default `homelab`) and listens on port **8080** without publishing it. Point your reverse proxy at it. For example, with Caddy:
+
+```caddyfile
+natlas.example.com {
+    reverse_proxy natlas:8080
+}
+```
+
+> **HTTPS is required** because the login cookie is `Secure`. For a plain-http test, set `NATLAS_COOKIE_SECURE=false` and add `ports: ["8080:8080"]`.
+
+To check your configuration without starting the server:
+
+```bash
+docker compose run --rm natlas check
+```
+
+This prints every mistake in `.env`, `natlas.yml` and each `plugin.yml`, with the file and key.
+
+---
+
+## Configuration
+
+### `.env` (secrets and machine settings, never committed)
+
+| Variable | Purpose |
+|---|---|
+| `NATLAS_USERNAME`, `NATLAS_PASSWORD` | The single login. |
+| `NATLAS_SECRET_KEY` | Signs the session cookie. At least 32 characters (`openssl rand -hex 32`). |
+| `NATLAS_DATA_DIR` | Host folder with your data files. It is mounted at `/data`. |
+| `TZ` | Timezone used for "today", "overdue" and birthdays. |
+| `PUID`, `PGID` | The container runs as this user, so saved files belong to you. |
+| `NATLAS_NETWORK` | Existing Docker network shared with your reverse proxy. |
+| `NATLAS_COOKIE_SECURE` | `false` only for plain-http testing. |
+| `NATLAS_TRUST_PROXY` | Default `true`: reads the client IP (for the login lockout) from `X-Forwarded-For`. |
+
+### `natlas.yml` (app settings, no secrets)
+
+```yaml
+title: Natlas
+currency: "₹"
+locale: en-IN
+data_dir: /data
+plugins:                 # enabled plugins, in menu order
+  - events
+  - subscriptions
+  - { id: inventory, file: stuff.csv, title: Stuff }   # per-plugin overrides
+lists:                   # shared dropdown lists, used as options: "@rooms"
+  rooms: [Kitchen, Bedroom, Garage]
+```
+
+---
+
+## Writing a plugin
+
+Create `plugins/<id>/plugin.yml`, add `<id>` to `natlas.yml`, and restart. Here is a complete plugin:
+
+```yaml
+title: Books
+icon: box                       # home calendar wallet gift heart box, or an emoji
+file: books.md                  # inside data_dir; .csv files work too
+
+collections:
+  - id: books
+    path: books                 # where the list lives in the YAML file
+    fields:
+      - { key: title, type: text, required: true }
+      - { key: author, type: select, options: data }        # suggests values already in the file
+      - { key: status, type: select, options: [to read, reading, read], default: to read }
+      - { key: finished, type: date }
+      - { key: rating, type: number }
+    list:
+      title: title
+      subtitle: [author, finished]
+      badges: [status]          # tap to change in place
+      search: [title, author]
+      filters: [author, status]
+      groups:
+        - { label: Reading, where: { status: reading } }
+        - { label: To read, where: { status: to read } }
+        - { label: Read, where: { status: read }, sort: [-finished], collapsed: true }
+    actions:
+      - { id: finish, label: Finished, icon: "✓", primary: true,
+          set: { status: read, finished: today }, when: { status: reading } }
+    quick_add: { title: title }
+    widgets:
+      - { label: Reading, count: { status: reading } }
+      - { label: Read this year, count: { status: read, finished: { gte: today-365 } } }
+```
+
+### Field types
+
+`text` · `textarea` · `number` (with optional `unit`) · `money` · `date` (with optional `format` in Go layout, for example `"02 Jan 2006"`) · `select` (`options: [..]`, `data`, or `"@list"`; add `allow_new: true` to allow typing new values) · `bool` · `list` (one item per line) · `url` · `anniversary` (a yearly date such as a birthday).
+
+Other field options are `required`, `default` (a value, or `today` / `today+7` for dates), `readonly`, `hidden`, `placeholder`, `help`, and `tones` (badge colours, for example `{ pending: warn }`).
+
+### Conditions (`where`, `when`, `count`)
+
+```yaml
+{ status: open }                                  # equals
+{ status: [open, pending] }                       # one of
+{ date: { lt: today } }                           # eq ne in nin lt lte gt gte empty contains
+{ date: { gt: today, lte: today+7 } }             # all must hold
+{ any: [ { status: pending }, { date: { lt: today } } ] }   # also: all, not
+```
+
+Dates compare as dates, numbers as numbers, and select fields by the order of their options (so `priority: { lte: medium }` means high or medium). Anniversary fields add `<key>.days`, `<key>.age` and `<key>.next` for use in conditions and lists.
+
+### Collection options
+
+| Key | Meaning |
+|---|---|
+| `kind: record` | A single mapping edited as one form (for example, a profile) instead of a list. |
+| `readonly: true` | View only: no add, edit or delete. |
+| `order: manual` | Keep the file order and offer move up/down. Otherwise lists are sorted on screen, never in the file. |
+| `new_at: start` | Insert new records at the top of the file. |
+| `id_from` | The field whose slug becomes a new record's id (default: `title` or `name`). |
+| `note` | Text under the title. `{key}` inserts a top-level value from the file, for example `{last_sync}`. |
+| `agenda` | Puts matching records on the Today screen: `{ section: overdue \| today \| upcoming, where, date }`. |
+| `widgets` | Today-screen numbers: `{ label, count: <where> }` or `{ label, sum: field, where, per_month_by: cycle-field, format: money }`. |
+| `summary` | `{ group_by: [...], sum: [...] }` adds a totals table to the list. |
+| `actions` | `{ id, label, icon, primary, set, when, confirm }`, or `{ move_to: other-collection, ask: [fields] }` to move a record between lists in the same file. |
+
+---
+
+## How Natlas treats your files
+
+- **Only the edited record changes.** Other records, unknown fields, comments and key order are left as they were. CSV rows you did not touch stay byte-for-byte identical.
+- **The file is never re-sorted.** Sorting and grouping happen on screen only, so a script that keeps its own order is never undone.
+- **Records without an `id`** get a stable id in memory. It is written to the file only when that record is edited. Opening a tab never writes.
+- **Conflicts are refused, not overwritten.** Every record has a revision. If another program changed the record after you opened it, the save is refused with a "changed elsewhere, reload" message.
+- **Writes are atomic** (temporary file, then rename), so readers never see a half-written file.
+- **YAML 1.1 safe.** Values that tools like PyYAML would misread (`'65:30'`, `'2026-10-05'`, `'yes'`) are quoted, just as `yaml.safe_dump` does.
+- A YAML file that starts with an `updated: <timestamp>` line gets a fresh stamp on every save.
+
+---
+
+## Project layout
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/niharokz/natlas.git
-git branch -M main
-git push -uf origin main
+cmd/natlas/        entry point (serve, `check`, `health`)
+internal/config/   .env, natlas.yml and plugin.yml loading and validation
+internal/store/    YAML and CSV reading and writing
+internal/query/    the where / sort language
+internal/api/      HTTP API, dashboard, quick-add parser
+internal/auth/     login, signed session cookie, lockout
+internal/dates/    today, date formats, cycles, anniversaries
+web/               index.html, app.js, natlas.css, service worker, vendored nss and Alpine
+plugins/           one folder per plugin, each holding a plugin.yml
+examples/data/     sample data for trying it out
+scripts/           dev.sh (local run), check-public.sh (pre-push secret check)
 ```
 
-## Integrate with your tools
+Run the tests with `go test -mod=vendor ./...`.
 
-* [Set up project integrations](https://gitlab.com/niharokz/natlas/-/settings/integrations)
+## Security notes
 
-## Collaborate with your team
-
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+- There is one user, and the login is locked for 30 minutes after 5 failed attempts from the same IP.
+- Changing requests must be JSON from the same origin, which blocks cross-site form posts.
+- The container runs as your user with a read-only root filesystem, and writes only to the data folder.
+- If you expose Natlas to the internet, consider an extra layer in front of it (VPN, Cloudflare Access, or proxy authentication).
+- `scripts/check-public.sh` can run as a git pre-push hook. It blocks pushing `.env`, `natlas.yml`, anything that looks like a real secret, or any word you list in `.private-words`.
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+MIT. Vendored: Alpine.js (MIT), nss (MIT), go-yaml v3 (MIT and Apache-2.0).

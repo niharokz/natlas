@@ -1,0 +1,5 @@
+id,type,name,purpose,condition,storage,price,weight
+blue-backpack,Bag,Blue backpack,Travel,Good,Wardrobe,2500.0,0.9
+running-shoes,Shoes,Running shoes,Running,Used,Shoe rack,8000.0,0.6
+rain-jacket,Jacket,Rain jacket,Travel/Running,Excellent,Wardrobe,3200.0,0.4
+old-tshirt,TShirt,Old event tshirt,Gym,Replace,Drawer,0.0,0.2
