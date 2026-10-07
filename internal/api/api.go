@@ -19,6 +19,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -36,8 +37,8 @@ type Server struct {
 
 // Register adds the API routes to mux.
 func (s *Server) Register(mux *http.ServeMux) {
-	mux.HandleFunc("POST /api/login", s.Auth.Login)
-	mux.HandleFunc("POST /api/logout", s.Auth.Logout)
+	mux.HandleFunc("POST /api/login", sameOrigin(s.Auth.Login))
+	mux.HandleFunc("POST /api/logout", sameOrigin(s.Auth.Logout))
 	mux.HandleFunc("GET /api/me", s.Auth.Me)
 
 	protected := func(pattern string, h http.HandlerFunc) {
@@ -102,12 +103,21 @@ func failErr(w http.ResponseWriter, err error) {
 	case errors.Is(err, errBadRequest):
 		fail(w, http.StatusBadRequest, err.Error())
 	default:
+		// full detail goes to the server log; the browser gets the message
+		// without absolute paths
 		log.Printf("[natlas] error: %v", err)
-		fail(w, http.StatusInternalServerError, err.Error())
+		fail(w, http.StatusInternalServerError, publicMessage(err))
 	}
 }
 
 var errBadRequest = errors.New("bad request")
+
+// absPath matches absolute file paths so they can be trimmed to a file name.
+var absPath = regexp.MustCompile(`(/[\w.@-]+)+/([\w.@-]+)`)
+
+func publicMessage(err error) string {
+	return absPath.ReplaceAllString(err.Error(), "$2")
+}
 
 type badRequest string
 

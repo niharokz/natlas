@@ -48,6 +48,9 @@ button{font-size:.92rem}
 .login form{width:min(22rem,100%);padding:1.6rem;background:var(--nss-surface);border:1px solid var(--nss-line);border-radius:var(--nss-radius);box-shadow:0 20px 50px -25px var(--nss-glow)}
 .login .brand{margin-bottom:.4rem}
 .login button{width:100%}
+.login-foot{margin:0;text-align:center;font-size:.85rem}
+.login-foot a{color:var(--nss-muted);text-decoration:none}
+.login-foot a:hover{color:var(--nss-ink)}
 
 /* ── shell ── */
 .shell{min-height:100dvh}

@@ -1,6 +1,16 @@
 // Package auth is single-user login: a signed session cookie (HMAC-SHA256,
 // no server-side session store) plus a per-IP lockout after repeated
 // failures.
+//
+// Hardening notes:
+//   - The cookie signing key is derived from NATLAS_SECRET_KEY *and* the
+//     password, so changing the password logs out every existing session.
+//   - Over HTTPS the cookie is named "__Host-natlas": browsers then refuse it
+//     unless it is Secure, host-only and Path=/.
+//   - The password may be stored as a PBKDF2 hash (NATLAS_PASSWORD_HASH).
+//   - Behind a proxy the client IP comes from CF-Connecting-IP, X-Real-IP or
+//     the *last* X-Forwarded-For entry (the one the proxy added), never the
+//     first entry, which any client can forge.
 package auth
 
 import (
@@ -10,6 +20,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -21,27 +32,42 @@ import (
 )
 
 const (
-	cookieName  = "natlas_session"
-	sessionLife = 30 * 24 * time.Hour
-	maxFailures = 5
-	lockout     = 30 * time.Minute
+	sessionLife  = 30 * 24 * time.Hour
+	maxFailures  = 5
+	lockout      = 30 * time.Minute
+	failDelay    = 400 * time.Millisecond // slows down guessing even from many IPs
+	maxTrackedIP = 10_000                 // memory cap for the failure table
 )
 
 // Auth checks credentials and sessions.
 type Auth struct {
 	s        *config.Settings
+	key      []byte // cookie signing key
+	cookie   string // cookie name
 	mu       sync.Mutex
 	failures map[string][]time.Time // ip -> recent failed attempts
 }
 
 // New creates the authenticator.
 func New(s *config.Settings) *Auth {
-	return &Auth{s: s, failures: map[string][]time.Time{}}
+	// Bind the signing key to the credential: a new password invalidates
+	// every cookie signed with the old one.
+	credential := s.PasswordHash
+	if credential == "" {
+		credential = s.Password
+	}
+	m := hmac.New(sha256.New, []byte(s.SecretKey))
+	m.Write([]byte("natlas-session-v2\x00" + s.Username + "\x00" + credential))
+	a := &Auth{s: s, key: m.Sum(nil), cookie: "natlas_session", failures: map[string][]time.Time{}}
+	if s.CookieSecure {
+		a.cookie = "__Host-natlas"
+	}
+	return a
 }
 
 // User returns the logged-in username, or "" when the request has no valid session.
 func (a *Auth) User(r *http.Request) string {
-	c, err := r.Cookie(cookieName)
+	c, err := r.Cookie(a.cookie)
 	if err != nil {
 		return ""
 	}
@@ -74,7 +100,7 @@ func (a *Auth) Require(next http.Handler) http.Handler {
 
 // Login handles POST /api/login {username, password}.
 func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
-	ip := a.clientIP(r)
+	ip := a.ClientIP(r)
 	if wait := a.lockedFor(ip); wait > 0 {
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{
 			"error": fmt.Sprintf("Too many failed attempts. Try again in %d min.", int(wait.Minutes())+1)})
@@ -85,10 +111,10 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Bad request"})
 		return
 	}
-	userOK := subtle.ConstantTimeCompare([]byte(body.Username), []byte(a.s.Username)) == 1
-	passOK := subtle.ConstantTimeCompare([]byte(body.Password), []byte(a.s.Password)) == 1
-	if !userOK || !passOK {
+	if !a.check(body.Username, body.Password) {
 		left := a.fail(ip)
+		log.Printf("[auth] failed login from %s (%d attempts left)", ip, left)
+		time.Sleep(failDelay)
 		msg := "Wrong username or password"
 		if left <= 2 {
 			msg += fmt.Sprintf(" (%d attempts left before a 30 min lockout)", left)
@@ -103,15 +129,28 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 	exp := time.Now().Add(sessionLife)
 	payload := base64.RawURLEncoding.EncodeToString([]byte(a.s.Username + "|" + strconv.FormatInt(exp.Unix(), 10)))
 	http.SetCookie(w, &http.Cookie{
-		Name: cookieName, Value: payload + "." + a.sign(payload), Path: "/",
+		Name: a.cookie, Value: payload + "." + a.sign(payload), Path: "/",
 		Expires: exp, HttpOnly: true, Secure: a.s.CookieSecure, SameSite: http.SameSiteLaxMode,
 	})
 	writeJSON(w, http.StatusOK, map[string]string{"username": a.s.Username})
 }
 
+// check compares credentials without leaking which part was wrong or how
+// much of it matched.
+func (a *Auth) check(user, password string) bool {
+	userOK := subtle.ConstantTimeCompare([]byte(user), []byte(a.s.Username)) == 1
+	var passOK bool
+	if a.s.PasswordHash != "" {
+		passOK = checkHash(a.s.PasswordHash, password)
+	} else {
+		passOK = subtle.ConstantTimeCompare([]byte(password), []byte(a.s.Password)) == 1
+	}
+	return userOK && passOK
+}
+
 // Logout handles POST /api/logout.
 func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(w, &http.Cookie{Name: cookieName, Value: "", Path: "/", MaxAge: -1,
+	http.SetCookie(w, &http.Cookie{Name: a.cookie, Value: "", Path: "/", MaxAge: -1,
 		HttpOnly: true, Secure: a.s.CookieSecure, SameSite: http.SameSiteLaxMode})
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
@@ -123,18 +162,29 @@ func (a *Auth) Me(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Auth) sign(payload string) string {
-	m := hmac.New(sha256.New, []byte(a.s.SecretKey))
+	m := hmac.New(sha256.New, a.key)
 	m.Write([]byte(payload))
 	return base64.RawURLEncoding.EncodeToString(m.Sum(nil))
 }
 
-// clientIP is the visitor's address. Behind Caddy the TCP peer is Caddy, so
-// the first X-Forwarded-For entry is used when TrustProxy is on.
-func (a *Auth) clientIP(r *http.Request) string {
+// ClientIP is the visitor's address, used for the login lockout and logs.
+//
+// With NATLAS_TRUST_PROXY (the default, for use behind Caddy/Cloudflare) it
+// reads, in order: CF-Connecting-IP (set by Cloudflare), X-Real-IP, then the
+// last X-Forwarded-For entry. The last entry is the one your own proxy
+// appended; earlier entries come from the client and can be forged.
+func (a *Auth) ClientIP(r *http.Request) string {
 	if a.s.TrustProxy {
-		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-			first, _, _ := strings.Cut(xff, ",")
-			return strings.TrimSpace(first)
+		for _, h := range []string{"CF-Connecting-IP", "X-Real-IP"} {
+			if ip := net.ParseIP(strings.TrimSpace(r.Header.Get(h))); ip != nil {
+				return ip.String()
+			}
+		}
+		if xff := r.Header.Values("X-Forwarded-For"); len(xff) > 0 {
+			parts := strings.Split(xff[len(xff)-1], ",")
+			if ip := net.ParseIP(strings.TrimSpace(parts[len(parts)-1])); ip != nil {
+				return ip.String()
+			}
 		}
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -153,6 +203,10 @@ func (a *Auth) recent(ip string) []time.Time {
 			kept = append(kept, t)
 		}
 	}
+	if len(kept) == 0 {
+		delete(a.failures, ip)
+		return nil
+	}
 	a.failures[ip] = kept
 	return kept
 }
@@ -170,6 +224,11 @@ func (a *Auth) lockedFor(ip string) time.Duration {
 func (a *Auth) fail(ip string) int {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if len(a.failures) >= maxTrackedIP { // forget expired entries before growing further
+		for k := range a.failures {
+			a.recent(k)
+		}
+	}
 	a.failures[ip] = append(a.recent(ip), time.Now())
 	return maxFailures - len(a.failures[ip])
 }

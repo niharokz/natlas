@@ -25,14 +25,15 @@ import (
 // from .env, so no secret ever lives in a YAML file or in git.
 type Settings struct {
 	Username     string
-	Password     string
+	Password     string // plain password, or ...
+	PasswordHash string // ... a PBKDF2 hash from `natlas hash-password` (preferred)
 	SecretKey    string
 	Addr         string // listen address, default ":8080"
 	ConfigFile   string // natlas.yml
 	PluginsDir   string // folder holding plugins/<id>/plugin.yml
 	WebDir       string // optional: serve web/ from disk (live edits while developing)
 	CookieSecure bool   // false only for plain-http local testing
-	TrustProxy   bool   // read the client IP from X-Forwarded-For (true behind Caddy)
+	TrustProxy   bool   // read the client IP from proxy headers (true behind Caddy/Cloudflare)
 }
 
 // LoadSettings reads Settings from the environment and reports every missing
@@ -41,6 +42,7 @@ func LoadSettings() (*Settings, error) {
 	s := &Settings{
 		Username:     strings.TrimSpace(os.Getenv("NATLAS_USERNAME")),
 		Password:     os.Getenv("NATLAS_PASSWORD"),
+		PasswordHash: strings.TrimSpace(os.Getenv("NATLAS_PASSWORD_HASH")),
 		SecretKey:    strings.TrimSpace(os.Getenv("NATLAS_SECRET_KEY")),
 		Addr:         envOr("NATLAS_ADDR", ":8080"),
 		ConfigFile:   envOr("NATLAS_CONFIG", "natlas.yml"),
@@ -53,8 +55,8 @@ func LoadSettings() (*Settings, error) {
 	if s.Username == "" {
 		missing = append(missing, "NATLAS_USERNAME")
 	}
-	if s.Password == "" {
-		missing = append(missing, "NATLAS_PASSWORD")
+	if s.Password == "" && s.PasswordHash == "" {
+		missing = append(missing, "NATLAS_PASSWORD_HASH (or NATLAS_PASSWORD)")
 	}
 	if len(s.SecretKey) < 32 {
 		missing = append(missing, "NATLAS_SECRET_KEY (at least 32 characters; generate one with: openssl rand -hex 32)")

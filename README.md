@@ -6,7 +6,7 @@ Natlas gives you a fast, phone-friendly web app over files you already keep, for
 
 Every tab is a plugin, and a plugin is **one YAML file**: fields, dropdowns, list layout, one-tap actions and dashboard numbers. Adding a new kind of data needs no code.
 
-- **Single Go binary.** About 10 MB, starts instantly, uses about 10 MB of RAM. One dependency (YAML), vendored.
+- **Single Go binary.** About 8 MB, starts instantly, uses about 10 MB of RAM. One dependency (YAML), vendored.
 - **Installable app (PWA).** Bottom navigation on phones, swipe gestures, offline read-only mode.
 - **Plays well with other writers.** It edits only the record you changed, keeps comments and unknown fields, never re-sorts your file, and refuses to overwrite a record that changed underneath you.
 - **No build step for the UI.** Alpine.js and the [nss](https://gitlab.com/niharokz/nss) stylesheet are vendored. Light and dark themes follow your system.
@@ -47,7 +47,7 @@ Turn plugins on and off, and choose their menu order, in `natlas.yml`.
 ### Try it locally (Go 1.24+)
 
 ```bash
-sh scripts/dev.sh        # open http://localhost:8080 and log in with demo / demo
+sh scripts/dev.sh        # open http://localhost:8080/app and log in with demo / demo
 ```
 
 This runs against a temporary copy of `examples/data/`, so nothing you click is permanent.
@@ -55,12 +55,20 @@ This runs against a temporary copy of `examples/data/`, so nothing you click is 
 ### Run with Docker
 
 ```bash
-git clone <this repo> natlas && cd natlas
+git clone https://gitlab.com/niharokz/natlas.git && cd natlas
 cp .env.example .env              # login, secret key, data folder, timezone
 cp natlas.example.yml natlas.yml  # app title, currency, enabled plugins
-openssl rand -hex 32              # paste into NATLAS_SECRET_KEY in .env
-docker compose up -d --build
+docker compose build
+
+# password hash -> NATLAS_PASSWORD_HASH in .env (typed password stays out of shell history)
+read -rs PW && printf '%s' "$PW" | docker run --rm -i natlas:local hash-password
+openssl rand -hex 32              # -> NATLAS_SECRET_KEY in .env
+
+docker compose run --rm natlas check   # every config mistake, with file and key
+docker compose up -d
 ```
+
+Natlas serves a public about page at `/` and the app at `/app`. Open `/app`, sign in, then use your browser's **Install** / **Add to Home Screen**.
 
 The container joins an existing Docker network (`NATLAS_NETWORK`, default `homelab`) and listens on port **8080** without publishing it. Point your reverse proxy at it. For example, with Caddy:
 
@@ -72,13 +80,9 @@ natlas.example.com {
 
 > **HTTPS is required** because the login cookie is `Secure`. For a plain-http test, set `NATLAS_COOKIE_SECURE=false` and add `ports: ["8080:8080"]`.
 
-To check your configuration without starting the server:
+Updating later: `git pull && docker compose up -d --build`. After editing a `plugin.yml` or `natlas.yml`, `docker compose restart natlas` is enough.
 
-```bash
-docker compose run --rm natlas check
-```
-
-This prints every mistake in `.env`, `natlas.yml` and each `plugin.yml`, with the file and key.
+Commands built into the binary: `natlas check`, `natlas hash-password`, `natlas health` (used by the Docker health check, which calls the unauthenticated `GET /healthz`) and `natlas version`.
 
 ---
 
@@ -86,16 +90,19 @@ This prints every mistake in `.env`, `natlas.yml` and each `plugin.yml`, with th
 
 ### `.env` (secrets and machine settings, never committed)
 
+`docker-compose.yml` passes only the variables below into the container, so `.env` may be a file shared with other services.
+
 | Variable | Purpose |
 |---|---|
-| `NATLAS_USERNAME`, `NATLAS_PASSWORD` | The single login. |
-| `NATLAS_SECRET_KEY` | Signs the session cookie. At least 32 characters (`openssl rand -hex 32`). |
+| `NATLAS_USERNAME` | The single login name. |
+| `NATLAS_PASSWORD_HASH` | Password hash from `natlas hash-password` (PBKDF2-SHA256). Or set a plain `NATLAS_PASSWORD` instead. |
+| `NATLAS_SECRET_KEY` | Signs the session cookie. At least 32 characters (`openssl rand -hex 32`). Changing it, or the password, signs every session out. |
 | `NATLAS_DATA_DIR` | Host folder with your data files. It is mounted at `/data`. |
 | `TZ` | Timezone used for "today", "overdue" and birthdays. |
 | `PUID`, `PGID` | The container runs as this user, so saved files belong to you. |
 | `NATLAS_NETWORK` | Existing Docker network shared with your reverse proxy. |
 | `NATLAS_COOKIE_SECURE` | `false` only for plain-http testing. |
-| `NATLAS_TRUST_PROXY` | Default `true`: reads the client IP (for the login lockout) from `X-Forwarded-For`. |
+| `NATLAS_TRUST_PROXY` | Default `true`: behind a proxy, reads the visitor IP (for the lockout and logs) from `CF-Connecting-IP`, `X-Real-IP`, or the **last** `X-Forwarded-For` entry. Set `false` if nothing sits in front of Natlas. |
 
 ### `natlas.yml` (app settings, no secrets)
 
@@ -201,28 +208,33 @@ Dates compare as dates, numbers as numbers, and select fields by the order of th
 ## Project layout
 
 ```
-cmd/natlas/        entry point (serve, `check`, `health`)
+cmd/natlas/        entry point (serve, check, hash-password, health, version), middleware
 internal/config/   .env, natlas.yml and plugin.yml loading and validation
 internal/store/    YAML and CSV reading and writing
 internal/query/    the where / sort language
 internal/api/      HTTP API, dashboard, quick-add parser
 internal/auth/     login, signed session cookie, lockout
 internal/dates/    today, date formats, cycles, anniversaries
-web/               index.html, app.js, natlas.css, service worker, vendored nss and Alpine
+web/               landing page (/), the app (/app: index.html, app.js, natlas.css), service worker, vendored nss and Alpine
 plugins/           one folder per plugin, each holding a plugin.yml
 examples/data/     sample data for trying it out
 scripts/           dev.sh (local run), check-public.sh (pre-push secret check)
 ```
 
-Run the tests with `go test -mod=vendor ./...`.
+Run the tests with `go test ./...` (the `vendor/` folder is used automatically; no network needed).
 
 ## Security notes
 
-- There is one user, and the login is locked for 30 minutes after 5 failed attempts from the same IP.
-- Changing requests must be JSON from the same origin, which blocks cross-site form posts.
-- The container runs as your user with a read-only root filesystem, and writes only to the data folder.
-- If you expose Natlas to the internet, consider an extra layer in front of it (VPN, Cloudflare Access, or proxy authentication).
-- `scripts/check-public.sh` can run as a git pre-push hook. It blocks pushing `.env`, `natlas.yml`, anything that looks like a real secret, or any word you list in `.private-words`.
+- **Login:** one user. The password can be stored as a PBKDF2-SHA256 hash and is compared in constant time. Five failures from one IP lock that IP out for 30 minutes, and every failure is delayed.
+- **Sessions:** HMAC-SHA256 signed cookie, `HttpOnly`, `Secure`, `SameSite=Lax`, named `__Host-natlas` over HTTPS. The signing key is derived from the secret key *and* the password, so changing either signs every session out.
+- **Requests:** every change must be same-origin JSON, which blocks cross-site forms and requests. Bodies are capped at 1 MB.
+- **Browser:** strict Content-Security-Policy (`'unsafe-eval'` is needed by Alpine.js), HSTS, no framing, `nosniff`, a restrictive Permissions-Policy, and no third-party scripts, fonts or analytics.
+- **Container:** runs as your user, read-only root filesystem, all Linux capabilities dropped, `no-new-privileges`; it can only write to the data folder.
+- **Logs:** every change and every failed request is logged with the client IP, never with bodies, cookies or passwords.
+- **Exposure:** the about page (`/`), `/healthz` and the web manifest are public; everything else needs a session. If you put Natlas on the internet, an extra layer such as a VPN or Cloudflare Access is still a good idea.
+- **Publishing your fork:** `scripts/check-public.sh` works as a git pre-push hook. It blocks pushing `.env`, `natlas.yml`, `HOMELAB.md`, anything that looks like a real secret, or any word you list in `.private-words`.
+
+Found a security problem? Please report it privately; see `SECURITY.md`.
 
 ## License
 

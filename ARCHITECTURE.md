@@ -20,17 +20,25 @@
 ## 2. Request flow
 
 ```
-browser (Alpine, app.js) ──JSON──► net/http ServeMux
+browser ──► recoverer ─► accessLog ─► securityHeaders ─► net/http ServeMux
+(Alpine, app.js)                   ├── /healthz ....................... plain "ok", no auth (Docker health check)
                                    ├── /api/login /logout /me ......... internal/auth
                                    ├── /api/app /dashboard /p/... ..... internal/api ──► internal/store ──► data file
                                    │                                        │               (yaml.Node / csv rows)
                                    │                                        └── internal/query (where, sort)
-                                   └── / /assets/ /sw.js /manifest ..... web (go:embed)
+                                   └── / (about page) /app (the app)
+                                       /assets/ /sw.js /manifest ...... web (go:embed)
 ```
 
 The main pieces:
 
-- **Process.** `cmd/natlas/main.go` loads the config, wires the routes, adds security headers and shuts down gracefully. It also has two subcommands: `natlas check` (validate the config) and `natlas health` (used by the Docker HEALTHCHECK).
+- **Process.** `cmd/natlas/main.go` loads the config, wires the routes and middleware, and shuts down gracefully. Subcommands: `natlas check` (validate the config), `natlas hash-password` (stdin → `NATLAS_PASSWORD_HASH=…`), `natlas health` (GET `/healthz`, for the Docker HEALTHCHECK) and `natlas version` (set with `-ldflags "-X main.version=…"`, Docker build arg `VERSION`).
+- **Middleware** (outermost first):
+  - `recoverer` turns a panic into a logged 500.
+  - `accessLog` logs every non-GET request and every failed request (except 401/404) as `ip method path status duration`. It never logs bodies, cookies or query strings.
+  - `securityHeaders` sets CSP (`'unsafe-eval'` only because Alpine compiles expressions; `object-src 'none'`, `base-uri 'none'`, `frame-ancestors 'none'`), nosniff, `X-Frame-Options: DENY`, `Referrer-Policy: same-origin`, Permissions-Policy, COOP/CORP, and HSTS when cookies are Secure.
+- **Server limits:** header 10 s, read and write 30 s, idle 120 s, headers capped at 64 KB, JSON bodies at 1 MB (login at 4 KB).
+- **Error messages:** a 500 reaches the browser with absolute paths trimmed to file names (`publicMessage`); full detail goes to the log.
 - **Startup config.** `internal/config` reads:
   - `Settings` from the environment;
   - `App` from `natlas.yml`;
@@ -47,9 +55,9 @@ The main pieces:
 | `internal/store` | The `Doc` interface: `Items`, `Create`, `Update`, `Delete`, `Move`, `Top`, `Save`. Implemented by `yamlDoc` and `csvDoc`. `File.Change(fn)` handles lock → read → fn → save. |
 | `internal/query` | The where language (`eq ne in nin lt lte gt gte empty contains`, plus `any` / `all` / `not`). Values are compared by field type. `Sort` is stable and puts empty values last. |
 | `internal/api` | Generic handlers, input cleaning and validation (`values.go`), Today screen (`dashboard.go`), quick-add parser (`quick.go`). |
-| `internal/auth` | HMAC-SHA256 signed cookie `natlas_session` (`user|expiry`, valid 30 days), constant-time credential check, per-IP lockout (5 failures within 30 minutes). The lockout is kept in memory. |
+| `internal/auth` | Signed session cookie (`user|expiry`, HMAC-SHA256, 30 days), named `__Host-natlas` when Secure (`natlas_session` for plain-http testing). The signing key is HMAC(secret key, username + credential), so a new password or secret invalidates every session. Password is plain (`NATLAS_PASSWORD`) or a PBKDF2-SHA256 hash (`NATLAS_PASSWORD_HASH`, format `pbkdf2-sha256:iter:salt:key`, no `$` so compose needs no quoting), compared in constant time. Lockout: 5 failures per IP in 30 minutes, plus a 400 ms delay on every failure; the table is held in memory and pruned when it reaches 10 000 IPs. Client IP (`ClientIP`, when `NATLAS_TRUST_PROXY`): `CF-Connecting-IP`, then `X-Real-IP`, then the *last* `X-Forwarded-For` entry, otherwise the TCP peer. Login and logout also go through the same-origin check. |
 | `internal/dates` | `Today()` in the container's TZ; parsing with a Go layout (ISO is always accepted too); tokens such as `today+7`; `CycleDays`, using the same rules as Taskmaster's `advance()`; `NextAnniversary`, where 29 Feb falls back to 28 Feb as in Taskmaster's `daily_update.py`. |
-| `web` | Embeds the UI. `{{VERSION}}` (a hash of all web files) busts caches. Generates the PWA manifest, with one shortcut per plugin. `NATLAS_WEB_DIR` serves the files from disk during development. |
+| `web` | Embeds the UI. `GET /` is the public about page (`landing.html` + `landing.css`, no JavaScript); `GET /app` is the app (`index.html`); `/app/` redirects. `{{VERSION}}` (a hash of all web files) busts caches; `{{RELEASE}}` is the binary version; `{{TITLE}}` is HTML-escaped. `/assets/` refuses directory listings and `.go` files. Generates the PWA manifest (`start_url` and `id` `/app`), with one shortcut per plugin. `NATLAS_WEB_DIR` serves the files from disk during development. |
 
 ## 4. Storage details
 
@@ -113,6 +121,7 @@ Undo works entirely on the client, using what the server returns:
 
 ## 6. Frontend (`web/`)
 
+- **Pages.** `/` is a static about page (features, install steps, configuration, plugin example, security) with an Install and a Sign in button, styled with the nss tokens in `landing.css`. The app lives at `/app`; its login screen links back to `/`.
 - **Structure.** One Alpine component, `natlas`, in `app.js`, and one `index.html`. Load order: `app.js` (defer), then `alpine.min.js` (defer). The component registers on `alpine:init`.
 - **Routing.**
   - Screens use the hash: `#/today`, `#/p/{plugin}/{collection}`.
@@ -148,17 +157,28 @@ Undo works entirely on the client, using what the server returns:
 
 ## 8. Testing
 
-Run `go test -mod=vendor ./...`. The tests cover:
+Run `go test ./...` (Go uses `vendor/` automatically). The tests cover:
 
 - **store:** file untouched on read; comments and unknown fields kept; YAML 1.1 quoting; create, delete, undo and move; nested paths and record collections; CSV byte-identical rows and CRLF.
 - **query:** operators, date tokens, select order, sorting.
 - **dates:** anniversaries (including the leap day), cycles, formats.
 - **config:** shipped plugins are valid; mistakes are collected and reported together; unknown keys are rejected.
-- **api:** an end-to-end flow (login, Done, stale-revision 409, 422, quick add, read-only 403, cross-origin 403, health move, dashboard) and the quick-add parser.
+- **api:** an end-to-end flow (login, Done, stale-revision 409, 422, quick add, read-only 403, cross-origin 403, health move, dashboard), the quick-add parser, and path trimming in error messages.
+- **auth:** cookie attributes, tampered cookies, sessions ending on a password change, PBKDF2 hashes, per-IP lockout, client-IP extraction (forged X-Forwarded-For ignored).
+- **web:** `/` and `/app` routes, title escaping, `/app/` redirect, no directory listings or source files, manifest and service-worker version.
 
 UI changes are checked by hand with `scripts/dev.sh`, on a phone-sized viewport and on desktop.
 
 ## Changelog
+
+- **2.1.0 (2026-10-07).** Production hardening and an about page:
+  - `/` is now a public about page; the app moved to `/app` (manifest `start_url` too, so reinstall the phone app once).
+  - Password can be a PBKDF2 hash (`natlas hash-password`); sessions are bound to the password; `__Host-` cookie.
+  - Client IP read safely behind Cloudflare and Caddy (the old code trusted the first, forgeable `X-Forwarded-For` entry).
+  - Failure delay and a memory cap on the lockout table; login and logout are same-origin only.
+  - More security headers (HSTS, Permissions-Policy, COOP/CORP, tighter CSP), panic recovery, access log, `/healthz`, server idle and header limits, no directory listings, paths trimmed from error messages.
+  - `natlas version` and a `VERSION` Docker build arg; container drops all capabilities.
+  - `SECURITY.md`; auth and web tests.
 
 - **2.0.0 (2026-10-05).** Rewrite in Go:
   - Plugins are now only YAML: no per-plugin Python, HTML or JS.

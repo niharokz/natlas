@@ -1,6 +1,6 @@
 #!/bin/sh
 # Run Natlas locally against a throwaway copy of the example data:
-#   sh scripts/dev.sh      then open http://localhost:8080  (login: demo / demo)
+#   sh scripts/dev.sh      then open http://localhost:8080/app  (login: demo / demo)
 # The web files are served from disk, so UI edits show on reload.
 set -eu
 cd "$(dirname "$0")/.."

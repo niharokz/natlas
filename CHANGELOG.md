@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.1.0 - 2026-10-07
+
+- **About page.** `/` is now a public page describing Natlas, with install steps and a Sign in button. The app moved to **`/app`**. Reinstall the phone app once so its start page is `/app`.
+- **Password hash.** `natlas hash-password` prints a PBKDF2-SHA256 `NATLAS_PASSWORD_HASH` for `.env`; a plain `NATLAS_PASSWORD` still works.
+- **Sessions.** The cookie is now `__Host-natlas` over HTTPS and is bound to the password: changing the password (or the secret key) signs every device out. Everyone is signed out once by this update.
+- **Login lockout fixed behind proxies.** The visitor IP now comes from `CF-Connecting-IP`, `X-Real-IP` or the last `X-Forwarded-For` entry. Before, a client could dodge the lockout by forging the first `X-Forwarded-For` entry. Failed logins are also slowed down, and the lockout table can no longer grow without limit.
+- **Hardening.** HSTS, Permissions-Policy, COOP/CORP and a tighter CSP; same-origin check on login and logout; panic recovery; access log of every change (IP, method, path, status); idle and header limits; no directory listings under `/assets/`; file paths trimmed from error messages.
+- **Ops.** `GET /healthz` for health checks, `natlas version`, `VERSION` build arg, `cap_drop: ALL` in compose.
+- **Docs.** `SECURITY.md`; README and ARCHITECTURE updated.
+
+
 ## 2.0.0 - 2026-10-05
 
 A rewrite. Data files keep their format; config and plugins are new.

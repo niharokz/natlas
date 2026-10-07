@@ -11,6 +11,7 @@ import (
 	"embed"
 	"encoding/hex"
 	"encoding/json"
+	"html"
 	"io/fs"
 	"net/http"
 	"os"
@@ -21,13 +22,13 @@ import (
 	"natlas/internal/config"
 )
 
-//go:embed index.html app.js natlas.css sw.js vendor icons
+//go:embed index.html landing.html app.js natlas.css landing.css sw.js vendor icons
 var files embed.FS
 
 // Handler returns the static-site handler. Every asset URL carries a version
 // (a hash of the files), so browsers and the service worker pick up a new
 // release immediately after an update.
-func Handler(dir string, app *config.App) (http.Handler, error) {
+func Handler(dir string, app *config.App, release string) (http.Handler, error) {
 	var root fs.FS = files
 	if dir != "" {
 		root = os.DirFS(dir)
@@ -47,7 +48,8 @@ func Handler(dir string, app *config.App) (http.Handler, error) {
 				return
 			}
 			b = bytes.ReplaceAll(b, []byte("{{VERSION}}"), []byte(version))
-			b = bytes.ReplaceAll(b, []byte("{{TITLE}}"), []byte(app.Title))
+			b = bytes.ReplaceAll(b, []byte("{{TITLE}}"), []byte(html.EscapeString(app.Title)))
+			b = bytes.ReplaceAll(b, []byte("{{RELEASE}}"), []byte(html.EscapeString(release)))
 			w.Header().Set("Cache-Control", "no-cache")
 			if strings.HasSuffix(name, ".js") {
 				w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
@@ -57,7 +59,11 @@ func Handler(dir string, app *config.App) (http.Handler, error) {
 			w.Write(b)
 		}
 	}
-	mux.HandleFunc("GET /{$}", page("index.html"))
+	mux.HandleFunc("GET /{$}", page("landing.html")) // public "about" page
+	mux.HandleFunc("GET /app", page("index.html"))   // the app (login screen when signed out)
+	mux.HandleFunc("GET /app/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/app", http.StatusMovedPermanently)
+	})
 	mux.HandleFunc("GET /sw.js", page("sw.js")) // at the root so it can control the whole app
 	mux.HandleFunc("GET /manifest.webmanifest", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/manifest+json")
@@ -66,6 +72,10 @@ func Handler(dir string, app *config.App) (http.Handler, error) {
 	})
 	assets := http.StripPrefix("/assets/", http.FileServerFS(root))
 	mux.Handle("GET /assets/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/") || strings.HasSuffix(r.URL.Path, ".go") {
+			http.NotFound(w, r) // no directory listings, no source files
+			return
+		}
 		if r.URL.Query().Get("v") != "" {
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		}
@@ -113,7 +123,8 @@ func buildManifest(app *config.App) []byte {
 		Icons []icon `json:"icons"`
 	}
 	m := map[string]any{
-		"name": app.Title, "short_name": app.Title, "start_url": "/", "scope": "/",
+		"name": app.Title, "short_name": app.Title,
+		"description": "Your lists, kept as plain YAML and CSV files.", "start_url": "/app", "scope": "/", "id": "/app",
 		"display": "standalone", "background_color": "#070b0f", "theme_color": "#070b0f",
 		"icons": []icon{
 			{Src: "/assets/icons/icon-192.png", Sizes: "192x192", Type: "image/png", Purpose: "any"},
@@ -126,7 +137,7 @@ func buildManifest(app *config.App) []byte {
 		if len(sc) == 4 { // Android shows at most four
 			break
 		}
-		sc = append(sc, shortcut{Name: p.Title, URL: "/#/p/" + p.ID,
+		sc = append(sc, shortcut{Name: p.Title, URL: "/app#/p/" + p.ID,
 			Icons: []icon{{Src: "/assets/icons/icon-192.png", Sizes: "192x192", Type: "image/png"}}})
 	}
 	m["shortcuts"] = sc

@@ -11,15 +11,15 @@ set -eu
 cd "$(git rev-parse --show-toplevel)"
 fail=0
 
-for f in .env natlas.yml .private-words; do
+for f in .env natlas.yml .private-words HOMELAB.md; do
   if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
     echo "✗ $f is tracked by git - remove it: git rm --cached $f"; fail=1
   fi
 done
 
-if git grep -nI -E '^NATLAS_(PASSWORD|SECRET_KEY)=.{12,}' -- . ':!.env.example' ':!scripts/dev.sh' >/dev/null 2>&1; then
+if git grep -nI -E '^NATLAS_(PASSWORD|PASSWORD_HASH|SECRET_KEY)=.{12,}' -- . ':!.env.example' ':!scripts/dev.sh' >/dev/null 2>&1; then
   echo "✗ something that looks like a real password or secret key is committed:"
-  git grep -nI -E '^NATLAS_(PASSWORD|SECRET_KEY)=.{12,}' -- . ':!.env.example' ':!scripts/dev.sh'; fail=1
+  git grep -nI -E '^NATLAS_(PASSWORD|PASSWORD_HASH|SECRET_KEY)=.{12,}' -- . ':!.env.example' ':!scripts/dev.sh'; fail=1
 fi
 
 if [ -f .private-words ]; then

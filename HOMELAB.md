@@ -81,3 +81,56 @@ Natlas's side of the contract:
 - Valid values: status `open` / `pending` / `closed`; priority `high` / `medium` / `low`; frequency `none` / `daily` / `weekly` / `monthly` / `quarterly` / `yearly`.
 - Subscriptions are one flat `subscriptions:` list. Due-today items reach the Today screen through Taskmaster's pending event.
 - If Taskmaster changes a record while it is open in Natlas (01:40–02:10), saving it gives "changed elsewhere, reload" instead of overwriting the change.
+
+## Upgrading to 2.1.0 and cleaning the public repo (2026-10-07)
+
+What the review found in the pushed repo (`gitlab/github/codeberg niharokz/natlas`, commit "natlas v1 added"):
+
+- `.gitignore`, `.dockerignore`, `.env.example`, `.gitattributes` and `natlas.example.yml` were missing (dotfiles did not survive the copy; `natlas.example.yml` had been renamed to `natlas.yml`).
+- Because of that, `.env`, `HOMELAB.md` and `natlas.yml` were committed and pushed.
+  - `.env` is a **symlink** to `/home/datar/docker/.env`, so only that path was published, not the secrets in it.
+  - `HOMELAB.md` (this file: domains, server paths, Taskmaster schedule) was published.
+  - `natlas.yml` was identical to the example, so nothing private.
+
+### 1. Keep the shared `.env`, but only pass Natlas its own variables
+
+`.env` stays a symlink to the shared `/home/datar/docker/.env`. Since 2.1.0, `docker-compose.yml`
+no longer uses `env_file:`; it lists the `NATLAS_*` variables (plus `TZ`) under `environment:`,
+so the container only receives those, not the other services' secrets. Add a hash on the server:
+
+```bash
+cd /home/datar/docker/natlas
+docker compose build
+read -rs PW && printf '%s' "$PW" | docker run --rm -i natlas:local hash-password
+# put NATLAS_PASSWORD_HASH=… in /home/datar/docker/.env and remove NATLAS_PASSWORD
+docker compose run --rm natlas check && docker compose up -d
+docker exec natlas /natlas version        # quick sanity check
+```
+
+Only the symlink's target path was published, and `.gitignore` now keeps `.env` out of git.
+
+### 2. Rewrite the public history
+
+There is a single commit, so the simplest clean-up is a fresh root commit, force-pushed to all three remotes. On the PC, in `D:\Downloads\nih.ar\natlas` (Git Bash):
+
+```bash
+git rm --cached -q .env HOMELAB.md natlas.yml     # stop tracking; files (and the .env symlink) stay on disk
+git checkout --orphan clean
+git add -A                                        # .gitignore now keeps the private files out
+git status --short | grep -E '\.env$|HOMELAB|natlas\.yml$' && echo STOP || echo clean
+git commit -m "natlas 2.1.0"
+git branch -D main && git branch -m main
+printf '%s\n' nihars datar nimory aziro > .private-words
+ln -sf ../../scripts/check-public.sh .git/hooks/pre-push
+sh scripts/check-public.sh
+git push --force -u origin main                   # origin pushes to GitLab, GitHub and Codeberg
+```
+
+On GitLab, "main" may be a protected branch: allow force push for a minute (Settings → Repository → Protected branches) or unprotect and re-protect.
+The old commit can stay reachable by its hash for a while on each host; if that matters, ask each host's support to purge it, or delete and re-create the repos.
+
+### 3. After deploying 2.1.0
+
+- The app is now at `https://data.nihars.com/app`; `/` is the public about page. Caddy needs no change.
+- Everyone is signed out once (new cookie name). On the phone, remove the old home-screen app and install it again from `/app`.
+- `docker logs natlas` now shows every change and failed login with the visitor IP (from `CF-Connecting-IP` for tunnel traffic).

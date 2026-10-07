@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
@@ -164,5 +165,12 @@ func TestParseQuick(t *testing.T) {
 		if got["title"] != want[0] || date != want[1] || prio != want[2] {
 			t.Errorf("%q -> %v", text, got)
 		}
+	}
+}
+
+func TestPublicMessageHidesPaths(t *testing.T) {
+	got := publicMessage(errors.New("open /home/someone/data/event.md: permission denied"))
+	if got != "open event.md: permission denied" {
+		t.Fatalf("got %q", got)
 	}
 }

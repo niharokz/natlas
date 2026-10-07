@@ -1,7 +1,10 @@
 # Natlas. All personal values (paths, user id, network) come from .env.
 services:
   natlas:
-    build: .
+    build:
+      context: .
+      args:
+        VERSION: 2.1.0
     image: natlas:local
     container_name: natlas
     restart: unless-stopped
@@ -13,6 +16,8 @@ services:
       - ./plugins:/app/plugins:ro            # edit a plugin.yml, then: docker compose restart natlas
       - ${NATLAS_DATA_DIR:?set NATLAS_DATA_DIR in .env}:/data
     read_only: true
+    cap_drop:
+      - ALL
     security_opt:
       - no-new-privileges:true
     networks:
