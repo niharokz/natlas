@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#3a807a">
+<meta name="description" content="Natlas: a small self-hosted app for your personal lists - events, subscriptions, birthdays, health, inventory - kept as plain YAML and CSV files. One Go binary, installable on your phone, plugins written in YAML.">
+<title>Natlas - your lists, in plain files</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/assets/icons/icon.svg?v={{VERSION}}" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png?v={{VERSION}}">
+<link rel="stylesheet" href="/assets/vendor/nss.min.css?v={{VERSION}}">
+<link rel="stylesheet" href="/assets/landing.css?v={{VERSION}}">
+</head>
+<body>
+<main class="about">
+  <nav>
+    <a class="brand" href="/"><img src="/assets/icons/icon.svg?v={{VERSION}}" alt="" width="34" height="34">natlas</a>
+    <a class="btn" href="#install">Install</a>
+    <a class="btn primary" href="/app">Sign in</a>
+  </nav>
+
+  <h1 class="lead">Your lists, <em>in plain files</em>, <em>one tap away</em>.</h1>
+  <p class="intro">Natlas is a small self-hosted app for the lists that run your life: todos and reminders,
+    bills and renewals, birthdays, races and workouts, the things you own. It installs on your phone like an app,
+    and every list is a plain YAML or CSV file you can open in any editor, sync with your notes and change with your own scripts.</p>
+  <div class="cta">
+    <a class="btn primary" href="/app">Sign in</a>
+    <a class="btn" href="#install">Install your own</a>
+    <a class="btn" href="https://gitlab.com/niharokz/natlas">Source code</a>
+  </div>
+  <p class="muted">This is a private instance - there is no public demo. Natlas is free and open source;
+    the steps below get your own copy running in about five minutes.</p>
+
+  <section class="feat" aria-label="Features">
+    <div class="card"><h2>☀️ Today screen</h2><p>Overdue, today and the next 7 days from every list in one place, each with a Done button - plus the numbers that matter, like monthly spend or birthdays this week.</p></div>
+    <div class="card"><h2>✅ One tap</h2><p>Done, Tomorrow, Cancel, Completed: each list has its own buttons. Tap a badge such as <code>open</code> or <code>high</code> to change it without opening a form.</p></div>
+    <div class="card"><h2>👆 Swipe &amp; select</h2><p>Swipe right for the main action, left to edit. Long-press to select many rows and close, reschedule or re-tag them together.</p></div>
+    <div class="card"><h2>↩️ Undo everything</h2><p>Every change - an edit, a Done, a delete, a bulk update - shows an Undo button for a few seconds. Mis-taps cost nothing.</p></div>
+    <div class="card"><h2>⚡ Quick add</h2><p>Type <code>Call bank tomorrow #todo !high</code> and the title, date, tag and priority are filled in for you. Weekdays, “12 oct”, “25/12” and “+3” all work.</p></div>
+    <div class="card"><h2>🧩 Plugins in YAML</h2><p>A list is one <code>plugin.yml</code>: fields, dropdowns, sections, buttons, Today rules and totals. Add a new kind of list without writing code.</p></div>
+    <div class="card"><h2>📄 Plain files</h2><p>No database. Each list is one human-readable file next to your notes - greppable, diffable, and safe to edit by hand or from Obsidian.</p></div>
+    <div class="card"><h2>🤝 Script-friendly</h2><p>Only the record you change is rewritten. Comments, unknown fields and file order are kept, and an edit that would overwrite a script's change is refused.</p></div>
+    <div class="card"><h2>📱 Installable app</h2><p>Bottom navigation, full-screen forms and shortcuts on your phone; a side panel on the desktop. Opens offline with your last data, read-only.</p></div>
+    <div class="card"><h2>🔒 Private by design</h2><p>Single user, hashed password, signed cookies, login lockout, strict browser policies, no third-party requests and no tracking.</p></div>
+    <div class="card"><h2>🪶 Tiny</h2><p>One Go binary of about 8 MB with the web app built in. Runs in a 10 MB Docker image as your own user, with a read-only filesystem.</p></div>
+    <div class="card"><h2>🌗 Light &amp; dark</h2><p>The <a href="https://gitlab.com/niharokz/nss">nss</a> teal theme follows your system, with a manual switch. Large tap targets, readable on any screen.</p></div>
+  </section>
+
+  <h2 id="lists">Lists it ships with</h2>
+  <div class="table">
+    <table>
+      <thead><tr><th>List</th><th>File</th><th>What you get</th></tr></thead>
+      <tbody>
+        <tr><td>📅 Events</td><td><code>event.md</code></td><td>Todos and reminders grouped Overdue / Today / Next 7 days / Later / Closed. Done, Tomorrow and Reopen buttons, smart quick add.</td></tr>
+        <tr><td>💳 Subscriptions</td><td><code>subscription.md</code></td><td>Bills and renewals, “due in 7 days”, and true monthly spend across any cycle: monthly, yearly, “84 days”, “3 years”.</td></tr>
+        <tr><td>🎁 Birthdays</td><td><code>birthdays.md</code></td><td>Read-only, sorted by the next birthday, with the age each person turns.</td></tr>
+        <tr><td>❤️ Health</td><td><code>health.md</code></td><td>Planned races (a Completed button asks for time and cost and moves the race to history), race history, gym routine in your own order, and a profile.</td></tr>
+        <tr><td>📦 Inventory</td><td><code>inventory.csv</code></td><td>What you own, its condition and where it is kept, with value and weight totals by place, type or condition.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">Turn lists on or off and choose their order in <code>natlas.yml</code>. Each one is just a folder under <code>plugins/</code>.</p>
+
+  <h2>What it stores</h2>
+  <p class="muted">An event is a few plain lines. Natlas, your editor and your scripts can all read and write it.</p>
+  <pre class="ledger">updated: 2026-10-07 02:10:00
+
+events:
+- id: renew-passport
+  title: Renew passport
+  date: '2026-10-12'
+  status: open          # open | pending | closed
+  priority: high        # high | medium | low
+  tags: todo
+  frequency: none       # none | daily | weekly | monthly | quarterly | yearly
+  note: Book a slot first</pre>
+
+  <h2 id="install">Install</h2>
+  <p class="muted">You need a Linux box with Docker and a reverse proxy that serves HTTPS (Caddy, Traefik, nginx, or a Cloudflare tunnel).</p>
+  <ol class="steps">
+    <li>
+      <h3>Get the code</h3>
+      <pre>git clone https://gitlab.com/niharokz/natlas.git
+cd natlas
+cp .env.example .env
+cp natlas.example.yml natlas.yml</pre>
+    </li>
+    <li>
+      <h3>Set your login</h3>
+      <p>Build the image, then create a password hash and a secret key and paste both into <code>.env</code>:</p>
+      <pre>docker compose build
+read -rs PW && printf '%s' "$PW" | docker run --rm -i natlas:local hash-password
+openssl rand -hex 32        # → NATLAS_SECRET_KEY</pre>
+      <p>Also set <code>NATLAS_USERNAME</code>, <code>NATLAS_DATA_DIR</code> (the folder with your files), <code>TZ</code>,
+        <code>PUID</code>/<code>PGID</code> (from <code>id -u</code> / <code>id -g</code>) and <code>NATLAS_NETWORK</code> (the Docker network your proxy is on).</p>
+    </li>
+    <li>
+      <h3>Check and start</h3>
+      <pre>docker compose run --rm natlas check     # lists every config mistake, with file and key
+docker compose up -d --build
+docker logs natlas                       # "natlas … listening on :8080"</pre>
+      <p>Missing data files are created on the first save; <code>examples/data/</code> has samples of every format.</p>
+    </li>
+    <li>
+      <h3>Put it behind HTTPS</h3>
+      <pre>natlas.example.com {
+    reverse_proxy natlas:8080
+}</pre>
+      <p>Open the site, sign in, then use your browser's <strong>Install</strong> / <strong>Add to Home Screen</strong>.</p>
+    </li>
+    <li>
+      <h3>Update later</h3>
+      <pre>git pull && docker compose up -d --build</pre>
+      <p>Edited a <code>plugin.yml</code> or <code>natlas.yml</code>? <code>docker compose restart natlas</code> is enough.</p>
+    </li>
+  </ol>
+  <p class="muted">Just looking? With Go 1.24+, <code>sh scripts/dev.sh</code> runs it on <code>http://localhost:8080</code> against a throwaway copy of the example data (login <code>demo</code> / <code>demo</code>).</p>
+
+  <h2>Configure</h2>
+  <div class="two">
+    <div class="card">
+      <h3><code>.env</code> - secrets and machine</h3>
+      <dl>
+        <dt>NATLAS_USERNAME</dt><dd>the single login</dd>
+        <dt>NATLAS_PASSWORD_HASH</dt><dd>from <code>natlas hash-password</code> (or a plain <code>NATLAS_PASSWORD</code>)</dd>
+        <dt>NATLAS_SECRET_KEY</dt><dd>signs the session cookie, 32+ characters</dd>
+        <dt>NATLAS_DATA_DIR</dt><dd>host folder with your list files</dd>
+        <dt>TZ · PUID · PGID</dt><dd>timezone for “today”; the user that owns the files</dd>
+        <dt>NATLAS_NETWORK</dt><dd>Docker network shared with your proxy</dd>
+      </dl>
+    </div>
+    <div class="card">
+      <h3><code>natlas.yml</code> - the app</h3>
+      <pre>title: Natlas
+currency: "₹"
+locale: en-IN
+data_dir: /data
+plugins:            # menu order
+  - events
+  - subscriptions
+  - birthdays
+  - health
+  - inventory
+lists:              # shared dropdowns
+  rooms: [Kitchen, Bedroom]</pre>
+    </div>
+  </div>
+
+  <h2>Add your own list</h2>
+  <p class="muted">Create <code>plugins/books/plugin.yml</code>, add <code>books</code> to <code>natlas.yml</code>, restart. That is the whole plugin:</p>
+  <pre class="ledger">title: Books
+icon: box
+file: books.md
+collections:
+  - id: books
+    path: books
+    fields:
+      - { key: title, type: text, required: true }
+      - { key: author, type: select, options: data }      # learns values from your file
+      - { key: status, type: select, options: [to read, reading, read], default: to read }
+      - { key: finished, type: date }
+    list:
+      title: title
+      subtitle: [author, finished]
+      badges: [status]                                    # tap to change in place
+      groups:
+        - { label: Reading, where: { status: reading } }
+        - { label: Read, where: { status: read }, sort: [-finished], collapsed: true }
+    actions:
+      - { id: finish, label: Finished, primary: true, set: { status: read, finished: today } }
+    quick_add: { title: title }
+    widgets:
+      - { label: Reading, count: { status: reading } }</pre>
+  <p class="muted">Field types: text, textarea, number, money, date, select, bool, list, url and anniversary.
+    Conditions use <code>eq ne in lt lte gt gte empty contains</code> plus <code>any</code> / <code>all</code> / <code>not</code>,
+    with dates like <code>today+7</code>. The README documents every option.</p>
+
+  <h2>Security</h2>
+  <ul class="checks">
+    <li>The password can be kept as a PBKDF2-SHA256 hash instead of plain text; credentials are compared in constant time.</li>
+    <li>HMAC-signed, HttpOnly, Secure, SameSite cookie (<code>__Host-</code> prefixed). Changing the password signs every session out.</li>
+    <li>Five wrong passwords lock that IP out for 30 minutes; the real client IP is read safely behind Cloudflare and proxies.</li>
+    <li>Writes must be same-origin JSON - cross-site forms and requests are refused.</li>
+    <li>Strict Content-Security-Policy, HSTS, no framing, no third-party scripts, fonts or analytics.</li>
+    <li>Runs as your user in a read-only container with no extra privileges; it can only write to your data folder.</li>
+    <li>Every change is logged with time and client IP - never with passwords or contents.</li>
+  </ul>
+
+  <footer>
+    natlas {{RELEASE}} · self-hosted, no tracking, no third-party services · MIT licence ·
+    source on <a href="https://gitlab.com/niharokz/natlas">GitLab</a>,
+    <a href="https://github.com/niharokz/natlas">GitHub</a> and
+    <a href="https://codeberg.org/niharokz/natlas">Codeberg</a>
+  </footer>
+</main>
+</body>
+</html>

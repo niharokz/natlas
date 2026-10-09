@@ -1,0 +1,9 @@
+.env
+natlas.yml
+.private-words
+HOMELAB.md
+.git
+data
+examples
+scripts
+*.md

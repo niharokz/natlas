@@ -1,0 +1,74 @@
+/* landing.css - the public "about" page at "/". Same nss tokens as the app,
+   laid out like the other nih.ar apps: brand + Sign in, big lead, cards. */
+body>.about{max-width:62rem;padding:1.25rem 1rem 4rem}
+.about nav{display:flex;align-items:center;gap:.6rem;padding:.25rem 0 2rem}
+.about .brand{display:flex;align-items:center;gap:.6rem;flex:1;font:750 1.2rem var(--nss-mono);color:var(--nss-fg);text-decoration:none;letter-spacing:-.02em}
+.about .brand img{width:34px;height:34px;border-radius:8px}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;min-height:2.4rem;padding:.5rem 1rem;
+  border:1px solid var(--nss-line);border-radius:10px;background:var(--nss-surface-2);color:var(--nss-fg);
+  font:600 .92rem var(--nss-sans);text-decoration:none;transition:border-color .2s,filter .2s}
+.btn:hover{border-color:var(--nss-accent);color:var(--nss-fg)}
+.btn.primary{background:var(--nss-accent);border-color:var(--nss-accent);color:var(--nss-on-accent)}
+.btn.primary:hover{filter:brightness(1.1);color:var(--nss-on-accent)}
+
+.lead{margin:.5rem 0 1rem;font-size:clamp(1.9rem,6vw,3.1rem);font-weight:800;line-height:1.1;letter-spacing:-.03em}
+.lead em{font-style:normal;color:var(--nss-ink)}
+.intro{max-width:44rem;font-size:1.08rem;color:var(--nss-muted)}
+.cta{display:flex;flex-wrap:wrap;gap:.6rem;margin:1.4rem 0 .8rem}
+.muted{color:var(--nss-muted);font-size:.92rem}
+
+.about h2{margin:2.6rem 0 .7rem;font-size:1.35rem}
+.about h3{margin:0 0 .4rem;font-size:1rem}
+
+.card{padding:1rem 1.1rem;background:var(--nss-surface);border:1px solid var(--nss-line);border-radius:var(--nss-radius)}
+.feat{display:grid;gap:.75rem;grid-template-columns:minmax(0,1fr);margin-top:1.8rem}
+@media (min-width:640px){.feat{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (min-width:900px){.feat{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.feat .card h2{margin:0 0 .35rem;font-size:1.02rem;letter-spacing:-.01em}
+.feat .card p{margin:0;color:var(--nss-muted);font-size:.92rem;line-height:1.55}
+
+.two{display:grid;gap:.75rem;grid-template-columns:minmax(0,1fr)}
+@media (min-width:760px){.two{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.two dl{display:grid;grid-template-columns:auto 1fr;gap:.3rem .8rem;margin:0;font-size:.88rem}
+.two dt{font:600 .78rem var(--nss-mono);color:var(--nss-ink);padding-top:.15rem}
+.two dd{margin:0;color:var(--nss-muted)}
+.two pre{margin:0}
+
+.table{overflow-x:auto}
+.table table{display:table;width:100%}
+.table td:first-child{white-space:nowrap;font-weight:600}
+.table td:nth-child(2){white-space:nowrap}
+.table td:last-child{color:var(--nss-muted)}
+
+/* code blocks keep nss's terminal-window look; just no bleed on phones */
+.about pre{margin:.4rem 0 1rem;font-size:.82rem;border:1px solid var(--nss-line);border-radius:10px}
+
+.steps{list-style:none;counter-reset:step;padding:0;margin:1rem 0;display:grid;gap:.9rem}
+.steps>li{counter-increment:step;position:relative;margin:0;padding:1rem 1.1rem 1rem 3.4rem;background:var(--nss-surface);border:1px solid var(--nss-line);border-radius:var(--nss-radius)}
+.steps>li::before{content:counter(step);position:absolute;left:1rem;top:1rem;display:grid;place-items:center;width:1.7rem;height:1.7rem;border-radius:50%;
+  background:var(--nss-accent);color:var(--nss-on-accent);font:700 .85rem var(--nss-mono)}
+.steps p{margin:.3rem 0 0;color:var(--nss-muted);font-size:.92rem}
+.steps pre{margin:.5rem 0 0}
+@media (max-width:480px){.steps>li{padding-left:1rem;padding-top:3.1rem}}
+
+.checks{list-style:none;padding:0;display:grid;gap:.4rem}
+.checks li{margin:0;padding-left:1.6rem;position:relative;color:var(--nss-muted)}
+.checks li::before{content:"✓";position:absolute;left:0;color:var(--nss-ok);font-weight:700}
+
+.about footer{margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--nss-line);color:var(--nss-muted);font-size:.85rem}
+.about footer a{color:inherit}
+/* phones: each table row becomes a small stacked card */
+@media (max-width:640px){
+  .table table,.table tbody,.table tr,.table td{display:block;width:auto}
+  .table thead{display:none}
+  .table tr{padding:.7rem .2rem;border-bottom:1px solid var(--nss-line)}
+  .table tr:last-child{border-bottom:0}
+  .table td{border:0;padding:.1rem .8rem}
+  .table td:nth-child(2){font-size:.85rem}
+}
+/* grid children must be allowed to shrink, so long code lines scroll inside
+   their block instead of widening the page */
+.steps>li,.two>*,.feat>*{min-width:0}
+.about pre{max-width:100%}
+@media (max-width:440px){.two dl{grid-template-columns:minmax(0,1fr)}.two dd{margin-bottom:.45rem}}

@@ -1,0 +1,14 @@
+# secrets and personal notes - never commit
+.env
+natlas.yml
+.private-words
+HOMELAB.md
+
+# local data and backups
+/data/
+*.bck
+*.bak
+
+# build output
+/natlas
+/bin/

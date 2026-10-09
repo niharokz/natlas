@@ -1,0 +1,23 @@
+# natlas.yml - copy this file to natlas.yml and adjust. No secrets here:
+# username, password and secret key live in .env.
+
+title: Natlas            # app name (browser tab, installed app)
+currency: "₹"            # symbol for money fields
+locale: en-IN            # number and date formatting in the browser
+
+# Folder holding the data files, as seen INSIDE the container.
+# docker compose mounts NATLAS_DATA_DIR (from .env) here.
+data_dir: /data
+
+# Enabled plugins, in menu order. Each is a folder under plugins/.
+# Override a plugin's file or title like this:
+#   - { id: inventory, file: stuff.csv, title: Stuff }
+plugins:
+  - events
+  - subscriptions
+  - birthdays
+  - health
+  - inventory
+
+# Shared dropdown lists. Use them in a plugin.yml field as `options: "@name"`.
+lists: {}
