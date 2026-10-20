@@ -9,19 +9,39 @@ import (
 	"natlas/internal/query"
 )
 
-// Plugin is plugins/<id>/plugin.yml: one tab in the app, backed by one data file.
+// Plugin is plugins/<id>/plugin.yml: one tab in the app, backed by one data file
+// (read-only collections may read another file, see Collection.File).
 type Plugin struct {
 	ID          string        `yaml:"-" json:"id"`
 	Title       string        `yaml:"title" json:"title"`
 	Icon        string        `yaml:"icon" json:"icon"`
 	Description string        `yaml:"description" json:"description,omitempty"`
-	File        string        `yaml:"file" json:"-"` // relative to data_dir unless absolute
+	File        string        `yaml:"file" json:"-"`                          // relative to data_dir unless absolute
+	View        string        `yaml:"view" json:"view"`                       // "list" (default), "calendar" or "document"
+	FormatName  string        `yaml:"format" json:"-"`                        // "markdown": a note split into sections; otherwise by extension
+	WeekStart   string        `yaml:"week_start" json:"week_start,omitempty"` // calendar: monday (default) or sunday
 	Collections []*Collection `yaml:"collections" json:"collections"`
+}
+
+// FileOf is the data file a collection reads: its own `file:` or the plugin's.
+func (p *Plugin) FileOf(c *Collection) string {
+	if c != nil && c.File != "" {
+		return c.File
+	}
+	return p.File
 }
 
 // Format is "csv" or "yaml", decided by the data file's extension.
 func (p *Plugin) Format() string {
-	if strings.EqualFold(filepath.Ext(p.File), ".csv") {
+	if p.FormatName == "markdown" {
+		return "markdown"
+	}
+	return FormatOf(p.File)
+}
+
+// FormatOf is "csv" for a .csv path, otherwise "yaml".
+func FormatOf(path string) string {
+	if strings.EqualFold(filepath.Ext(path), ".csv") {
 		return "csv"
 	}
 	return "yaml"
@@ -47,9 +67,11 @@ type Collection struct {
 	IDField  string `yaml:"id_field" json:"id_field"`   // default "id"
 	IDFrom   string `yaml:"id_from" json:"-"`           // field slugified into new ids
 	ReadOnly bool   `yaml:"readonly" json:"readonly"`   // no create/edit/delete at all
+	File     string `yaml:"file" json:"-"`              // read-only collections only: another data file (e.g. one synced by a batch job)
 	Order    string `yaml:"order" json:"order"`         // "manual": keep file order, allow move up/down
 	NewAt    string `yaml:"new_at" json:"-"`            // where new records go: "end" (default) or "start"
 	Note     string `yaml:"note" json:"note,omitempty"` // shown under the title; {key} = a top-level value in the file
+	Link     *Link  `yaml:"link" json:"link,omitempty"` // a button on each record, e.g. "Open in Google Calendar"
 
 	Fields   []*Field  `yaml:"fields" json:"fields"`
 	List     ListSpec  `yaml:"list" json:"list"`
@@ -58,6 +80,8 @@ type Collection struct {
 	Summary  *Summary  `yaml:"summary" json:"summary,omitempty"`
 	Agenda   []*Agenda `yaml:"agenda" json:"-"`
 	Widgets  []*Widget `yaml:"widgets" json:"-"`
+	Charts   *Charts   `yaml:"charts" json:"charts,omitempty"` // dashboard over a dated list (charts.go)
+	Sync     *Sync     `yaml:"sync" json:"sync,omitempty"`     // filled by the phone app from a device source
 	fieldMap map[string]*Field
 }
 
@@ -96,6 +120,8 @@ var fieldTypes = map[string]string{
 	"list":        "a list of lines (one per line in the form)",
 	"url":         "a link",
 	"anniversary": "a yearly date like a birthday (YYYY-MM-DD, year 0000 = unknown)",
+	"time":        "a time of day (stored as HH:MM, 24-hour)",
+	"markdown":    "multi-line Markdown text, edited with a preview",
 }
 
 // ListSpec controls how the list screen looks.
@@ -139,7 +165,15 @@ type QuickAdd struct {
 	Date     string `yaml:"date" json:"date,omitempty"`
 	Tag      string `yaml:"tag" json:"tag,omitempty"`
 	Priority string `yaml:"priority" json:"priority,omitempty"`
+	Time     string `yaml:"time" json:"time,omitempty"` // "8pm", "20:30" in the line set this field
 	Hint     string `yaml:"hint" json:"hint,omitempty"`
+}
+
+// Link is an outside page for a record; {key} in the URL is replaced by
+// that field's value (URL-encoded).
+type Link struct {
+	Label string `yaml:"label" json:"label"`
+	URL   string `yaml:"url" json:"url"`
 }
 
 // Summary is the collapsible totals table (Inventory's old pivot).
@@ -228,6 +262,27 @@ func (p *Plugin) prepare(app *App) error {
 	if p.Format() == "csv" && len(p.Collections) != 1 {
 		add("a CSV file holds exactly one collection")
 	}
+	switch p.View {
+	case "":
+		p.View = "list"
+	case "list", "calendar":
+	case "document":
+		if p.FormatName != "markdown" {
+			add("view: document needs format: markdown")
+		}
+	default:
+		add("view must be list, calendar or document")
+	}
+	switch p.FormatName {
+	case "", "markdown":
+	default:
+		add("format must be markdown (or left out: .csv is CSV, anything else YAML)")
+	}
+	switch p.WeekStart {
+	case "", "monday", "sunday":
+	default:
+		add("week_start must be monday or sunday")
+	}
 
 	seen := map[string]bool{}
 	for _, c := range p.Collections {
@@ -261,7 +316,15 @@ func (p *Plugin) prepare(app *App) error {
 		if c.IDField == "" {
 			c.IDField = "id"
 		}
-		if p.Format() == "yaml" && c.Path == "" {
+		if c.File != "" {
+			if !c.ReadOnly {
+				add("%s: `file:` is only allowed on a readonly collection (Natlas writes only the plugin's own file)", where)
+			}
+			if FormatOf(c.File) == "csv" {
+				add("%s: `file:` must be a YAML file", where)
+			}
+		}
+		if FormatOf(p.FileOf(c)) == "yaml" && p.Format() != "markdown" && c.Path == "" {
 			add("%s: `path:` is required for YAML files (e.g. path: events)", where)
 		}
 		if c.Order != "" && c.Order != "manual" {
@@ -359,6 +422,8 @@ func (p *Plugin) prepare(app *App) error {
 				target := p.Collection(a.MoveTo)
 				if target == nil || target == c {
 					add("%s: move_to %q is not another collection in this plugin", aw, a.MoveTo)
+				} else if p.FileOf(target) != p.FileOf(c) {
+					add("%s: move_to %q is in another file", aw, a.MoveTo)
 				}
 			}
 			if len(a.Set) == 0 && a.MoveTo == "" {
@@ -371,8 +436,41 @@ func (p *Plugin) prepare(app *App) error {
 			a.cond = cond
 		}
 
+		if l := c.Link; l != nil {
+			if l.Label == "" || !(strings.HasPrefix(l.URL, "https://") || strings.HasPrefix(l.URL, "http://")) {
+				add("%s link: needs `label` and an http(s) `url`", where)
+			}
+			for _, part := range strings.Split(l.URL, "{")[1:] {
+				if key, _, _ := strings.Cut(part, "}"); c.fieldMap[key] == nil {
+					add("%s link: {%s} is not a field", where, key)
+				}
+			}
+		}
+		if p.Format() == "markdown" && c.File == "" {
+			switch {
+			case c.Path == "sections" && c.Kind == "list":
+				if c.fieldMap["title"] == nil {
+					add("%s: Markdown sections need a `title` field (and usually `body`)", where)
+				}
+				for _, f := range c.Fields {
+					if f.Key != "title" && f.Key != "body" {
+						add("%s: Markdown sections only have `title` and `body`, not %q", where, f.Key)
+					}
+				}
+			case c.Path == "front" && c.Kind == "record":
+			default:
+				add("%s: in a Markdown note use `path: sections` (kind: list) or `path: front` (kind: record: front matter keys + intro)", where)
+			}
+		}
+		if p.View == "calendar" && c.Kind == "list" {
+			for _, k := range []string{"title", "date"} {
+				if f := c.fieldMap[k]; f == nil || (k == "date" && f.Type != "date") {
+					add("%s: a calendar view needs a %q field (date type for date)", where, k)
+				}
+			}
+		}
 		if q := c.QuickAdd; q != nil {
-			for _, k := range []string{q.Title, q.Date, q.Tag, q.Priority} {
+			for _, k := range []string{q.Title, q.Date, q.Tag, q.Priority, q.Time} {
 				if k != "" && c.fieldMap[k] == nil {
 					add("%s quick_add: %q is not a field", where, k)
 				}
@@ -423,6 +521,11 @@ func (p *Plugin) prepare(app *App) error {
 			if w.PerMonthBy != "" && c.fieldMap[w.PerMonthBy] == nil {
 				add("%s: per_month_by %q is not a field", ww, w.PerMonthBy)
 			}
+		}
+	}
+	for _, c := range p.Collections {
+		if c.fieldMap != nil {
+			p.prepareCharts(c, add)
 		}
 	}
 	if len(problems) > 0 {

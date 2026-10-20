@@ -1,0 +1,5 @@
+Third-party files in this folder (all MIT licensed):
+  alpine.min.js   Alpine.js 3.14.1   https://github.com/alpinejs/alpine
+  marked.min.js   marked 15.0.12     https://github.com/markedjs/marked
+  mermaid.min.js  mermaid 11.16.1    https://github.com/mermaid-js/mermaid
+  nss.min.css     nss 3.0 (subset)   https://gitlab.com/niharokz/nss

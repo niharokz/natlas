@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Natlas mark (same as web/icons/icon.svg) on its dark rounded tile. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp" android:height="96dp" android:viewportWidth="512" android:viewportHeight="512">
+    <path android:pathData="M112,0L400,0A112,112 0 0,1 512,112L512,400A112,112 0 0,1 400,512L112,512A112,112 0 0,1 0,400L0,112A112,112 0 0,1 112,0Z" android:fillColor="#070B0F"/>
+    <group>
+        <path android:pathData="M256,72L415,164L415,348L256,440L97,348L97,164Z" android:strokeColor="#3A807A" android:strokeWidth="28" android:strokeLineJoin="round" android:fillColor="#00000000"/>
+        <path android:pathData="M220,164a36,36 0 1,0 72,0a36,36 0 1,0 -72,0" android:fillColor="#66BDB3"/>
+        <path android:pathData="M132,309a36,36 0 1,0 72,0a36,36 0 1,0 -72,0" android:fillColor="#A9B8FF"/>
+        <path android:pathData="M308,309a36,36 0 1,0 72,0a36,36 0 1,0 -72,0" android:fillColor="#66BDB3"/>
+    </group>
+</vector>

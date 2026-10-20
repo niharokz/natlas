@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- nss palette (same as the web app), light. -->
+<resources>
+    <color name="bg">#F6F8F8</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="fg">#14201F</color>
+    <color name="muted">#5C6B6A</color>
+    <color name="line">#D7E2E0</color>
+    <color name="accent">#3A807A</color>
+    <color name="on_accent">#FFFFFF</color>
+    <color name="ripple">#333A807A</color>
+    <color name="ok">#1F8A5A</color>
+    <color name="bad">#D63C3C</color>
+    <color name="icon_bg">#070B0F</color>
+    <!-- widget defaults (the widget code overrides them per style) -->
+    <color name="w_text">#14201F</color>
+    <color name="w_muted">#5C6B6A</color>
+</resources>

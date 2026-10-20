@@ -33,6 +33,7 @@ import (
 type Server struct {
 	App  *config.App
 	Auth *auth.Auth
+	Main bool // this copy merges Syncthing conflict copies
 }
 
 // Register adds the API routes to mux.
@@ -40,6 +41,9 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/login", sameOrigin(s.Auth.Login))
 	mux.HandleFunc("POST /api/logout", sameOrigin(s.Auth.Logout))
 	mux.HandleFunc("GET /api/me", s.Auth.Me)
+	mux.Handle("POST /api/device", s.Auth.Require(sameOrigin(s.Auth.Device)))   // device key: signed in until logout
+	mux.Handle("DELETE /api/device", s.Auth.Require(sameOrigin(s.Auth.Device))) // forget this browser
+	mux.HandleFunc("GET /local", s.Auth.LocalEntry)
 
 	protected := func(pattern string, h http.HandlerFunc) {
 		mux.Handle(pattern, s.Auth.Require(sameOrigin(h)))
@@ -54,6 +58,8 @@ func (s *Server) Register(mux *http.ServeMux) {
 	protected("DELETE /api/p/{plugin}/{coll}/{id}", s.remove)
 	protected("POST /api/p/{plugin}/{coll}/{id}/do/{action}", s.action)
 	protected("POST /api/p/{plugin}/{coll}/{id}/move", s.move)
+	protected("GET /api/conflicts", s.conflicts)
+	protected("POST /api/conflicts/{id}", s.resolveConflict)
 }
 
 // sameOrigin blocks cross-site writes: a changing request must be JSON (which
@@ -192,7 +198,7 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	doc, err := store.For(p).Read()
+	doc, err := store.ForCollection(p, c).View()
 	if err != nil {
 		failErr(w, err)
 		return

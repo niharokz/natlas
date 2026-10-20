@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="/assets/vendor/nss.min.css?v={{VERSION}}">
 <link rel="stylesheet" href="/assets/natlas.css?v={{VERSION}}">
 <!-- app.js registers the Alpine component, so it must run before Alpine starts -->
+<script defer src="/assets/vendor/marked.min.js?v={{VERSION}}"></script>
 <script defer src="/assets/app.js?v={{VERSION}}"></script>
 <script defer src="/assets/vendor/alpine.min.js?v={{VERSION}}"></script>
 </head>
@@ -58,11 +59,13 @@
             <span class="ico" x-html="icon(theme === 'light' ? 'sun' : theme === 'dark' ? 'moon' : 'auto')"></span>
             <span x-text="'Theme: ' + theme"></span>
           </button>
-          <button class="ghost" @click="logout()"><span class="ico" x-html="icon('logout')"></span>Log out</button>
+          <a href="#/phone" x-show="native" :aria-current="route.view === 'phone' ? 'page' : null"><span class="ico" x-html="icon('gear')"></span>Settings</a>
+          <button class="ghost" x-show="!native && device.available" @click="openDevice()"><span class="ico" x-html="icon('lock')"></span><span x-text="device.remembered ? 'This device: stays signed in' : 'This device: ' + device.hours + ' h session'"></span></button>
+          <button class="ghost" x-show="!native" @click="logout()"><span class="ico" x-html="icon('logout')"></span>Log out</button>
         </div>
       </nav>
 
-      <div class="main">
+      <div class="main" :class="{wide: isCalendar() || isDocument()}">
         <p class="offline" x-show="offline">Offline - showing the last loaded data. Editing is paused.</p>
 
         <!-- ───── TODAY ───── -->
@@ -77,6 +80,13 @@
 
             <template x-if="todayLoaded">
               <div>
+                <!-- records changed on two devices (Syncthing conflict copies) -->
+                <button class="conflict-card" x-show="conflicts.list.length" @click="openConflicts()">
+                  <span class="ico" x-html="icon('sync')"></span>
+                  <span><strong x-text="conflicts.list.length + (conflicts.list.length === 1 ? ' record was' : ' records were') + ' changed on two devices'"></strong>
+                    <small>Tap to pick which version to keep</small></span>
+                </button>
+                <p class="note" x-show="!conflicts.main && conflicts.copies" x-text="conflicts.copies + ' sync conflict cop' + (conflicts.copies === 1 ? 'y' : 'ies') + ' waiting for the main device to merge them.'"></p>
                 <template x-for="sec in agendaSections()" :key="sec.key">
                   <section class="group">
                     <h2><span x-text="sec.label"></span> <small x-text="sec.items.length"></small></h2>
@@ -124,13 +134,171 @@
           </section>
         </template>
 
+
+        <!-- ───── PHONE SETTINGS (Android app only) ───── -->
+        <template x-if="route.view === 'phone' && phone">
+          <section class="view phone">
+            <header class="view-head"><h1>Settings</h1></header>
+
+            <div class="set-card">
+              <h2><span class="ico" x-html="icon('folder')"></span> Notes folder</h2>
+              <p class="set-path" x-text="phone.folder || 'No folder chosen'"></p>
+              <p class="set-state" :class="phone.folderOk ? 'ok' : 'bad'" x-text="phone.folderNote"></p>
+              <div class="set-row-btns">
+                <button class="ghost" @click="nativeCall('pickFolder')">Change folder</button>
+                <button class="ghost" x-show="!phone.fileAccess" @click="nativeCall('fileAccess')">Allow file access</button>
+                <button class="ghost" @click="nativeCall('demo')">Use sample data</button>
+              </div>
+            </div>
+
+            <div class="set-card">
+              <h2><span class="ico" x-html="icon('gear')"></span> Config folder</h2>
+              <p class="set-help">Where this app keeps its configuration: <code>settings.json</code> (these settings, saved on every change), and optionally <code>natlas.yml</code> and <code>plugins/</code> for the engine. Pick the same folder after a reinstall or on a new phone to get your settings back. The PIN is never written there.</p>
+              <p class="set-path" x-text="phone.configDir || 'Inside the app'"></p>
+              <p class="set-state" :class="phone.configDir ? 'ok' : ''" x-text="phone.configNote"></p>
+              <div class="set-row-btns">
+                <button class="ghost" @click="nativeCall('pickConfigFolder')" x-text="phone.configDir ? 'Change folder' : 'Choose folder'"></button>
+                <button class="ghost" x-show="phone.configDir" @click="setPhone('configDir', '')">Keep inside the app</button>
+              </div>
+            </div>
+
+            <div class="set-card">
+              <h2><span class="ico" x-html="icon('list')"></span> Lists</h2>
+              <p class="set-help">Which lists the app shows, in this order. Changing them restarts Natlas.</p>
+              <ul class="set-list">
+                <template x-for="(p, i) in phone.plugins" :key="p.id">
+                  <li>
+                    <label class="check"><input type="checkbox" role="switch" :checked="p.on" @change="phoneToggle(p.id)"> <span x-text="p.title"></span></label>
+                    <span class="set-move">
+                      <button class="ghost icon-only" :disabled="i === 0" @click="phoneMove(p.id, -1)" title="Move up">↑</button>
+                      <button class="ghost icon-only" :disabled="i === phone.plugins.length - 1" @click="phoneMove(p.id, 1)" title="Move down">↓</button>
+                    </span>
+                  </li>
+                </template>
+              </ul>
+              <label class="set-field">Open the app on
+                <select :value="phone.start" @change="setPhone('start', $event.target.value)">
+                  <option value="#/today">Today</option>
+                  <template x-for="p in app.plugins" :key="p.id"><option :value="'#/p/' + p.id" x-text="p.title" :selected="phone.start === '#/p/' + p.id"></option></template>
+                </select>
+              </label>
+            </div>
+
+            <div class="set-card">
+              <h2><span class="ico" x-html="icon('lock')"></span> Security</h2>
+              <label class="set-field">App lock
+                <select :value="phone.lock" @change="setPhone('lock', $event.target.value)">
+                  <option value="off">Off</option>
+                  <option value="device" :disabled="!phone.deviceSecure">Fingerprint or phone screen lock</option>
+                  <option value="pin">Natlas PIN</option>
+                </select>
+              </label>
+              <p class="set-help" x-show="!phone.deviceSecure">Set a screen lock on the phone to use fingerprint unlock.</p>
+              <template x-if="phone.lock === 'pin'">
+                <div>
+                  <div class="set-row-btns"><button class="ghost" @click="nativeCall('choosePin')" x-text="phone.hasPin ? 'Change PIN' : 'Set PIN'"></button></div>
+                  <label class="check set-check" x-show="phone.biometric"><input type="checkbox" role="switch" :checked="phone.pinBio" @change="setPhone('pinBio', $event.target.checked)"> <span>Fingerprint too</span></label>
+                </div>
+              </template>
+              <label class="set-field" x-show="phone.lock !== 'off'">Lock again after
+                <select :value="String(phone.delay)" @change="setPhone('delay', $event.target.value)">
+                  <option value="0">Immediately</option><option value="60">1 minute</option><option value="300">5 minutes</option>
+                  <option value="900">15 minutes</option><option value="-1">Only after a restart</option>
+                </select>
+              </label>
+              <label class="check set-check"><input type="checkbox" role="switch" :checked="phone.secure" @change="setPhone('secure', $event.target.checked)"> <span>Hide content in recent apps and screenshots</span></label>
+              <div class="set-row-btns" x-show="phone.lock !== 'off'"><button class="ghost" @click="nativeCall('lockNow')">Lock now</button></div>
+            </div>
+
+            <div class="set-card">
+              <h2><span class="ico" x-html="icon('sun')"></span> Look</h2>
+              <label class="set-field">Theme
+                <select :value="theme" @change="theme = $event.target.value; _setPref('natlas_theme', theme); applyTheme(); $nextTick(() => redrawDiagrams())">
+                  <option value="auto">Follow the phone</option><option value="dark">Dark</option><option value="light">Light</option>
+                </select>
+              </label>
+              <label class="check set-check"><input type="checkbox" role="switch" :checked="motionOn()" @change="setMotion($event.target.checked)"> <span>Animations</span></label>
+            </div>
+
+            <div class="set-card">
+              <h2><span class="ico" x-html="icon('grid')"></span> Widgets</h2>
+              <p class="set-help">Long-press the home screen → Widgets → Natlas. Every widget can be resized; List, Number, Glance and Quick add ask which list or number to show.</p>
+              <label class="set-field">Style
+                <select :value="phone.widgets.theme" @change="setPhone('widgetTheme', $event.target.value)">
+                  <option value="auto">Follow the phone</option><option value="light">Light</option><option value="dark">Dark</option>
+                  <option value="amoled">AMOLED black</option><option value="glass">Glass</option><option value="clear">Clear (no background)</option>
+                </select>
+              </label>
+              <label class="set-field">Background opacity <small x-text="phone.widgets.opacity + '%'"></small>
+                <input type="range" min="0" max="100" step="5" :value="phone.widgets.opacity" @change="setPhone('widgetOpacity', $event.target.value)">
+              </label>
+              <label class="set-field">Accent colour
+                <select :value="phone.widgets.accent" @change="setPhone('widgetAccent', $event.target.value)">
+                  <option value="teal">Natlas teal</option><option value="dynamic">Phone colours (Material You)</option>
+                </select>
+              </label>
+              <label class="check set-check"><input type="checkbox" role="switch" :checked="phone.widgets.privacy" @change="setPhone('widgetPrivacy', $event.target.checked)"> <span>Hide titles on widgets</span></label>
+              <div class="set-row-btns"><button class="ghost" @click="nativeCall('refreshWidgets')">Refresh widgets now</button></div>
+              <p class="set-help" x-text="phone.widgets.last ? 'Last refresh: ' + phone.widgets.last : ''"></p>
+            </div>
+
+            <div class="set-card" x-show="phone.health">
+              <h2><span class="ico" x-html="icon('heart')"></span> Health</h2>
+              <template x-if="!phone.health?.supported"><p class="set-help">Health Connect needs Android 14 or newer.</p></template>
+              <template x-if="phone.health?.supported">
+                <div>
+                  <p class="set-help">Reads Samsung Health (and anything else that shares into Health Connect) into Health → Daily in health.md: steps, sleep, heart, weight and more. Read only; nothing leaves the phone except through your Syncthing folder.</p>
+                  <p class="set-state" :class="phone.health.granted ? 'ok' : 'bad'"
+                     x-text="phone.health.granted ? phone.health.granted + ' of ' + phone.health.total + ' data types allowed' + (phone.health.history ? ' · past data' : '') + (phone.health.background ? ' · in the background' : '') : 'No access to Health Connect yet'"></p>
+                  <div class="set-row-btns">
+                    <button :class="phone.health.granted ? 'ghost' : 'primary'" @click="nativeCall('healthGrant')" x-text="phone.health.granted ? 'Allow more' : 'Allow access'"></button>
+                    <button class="ghost" x-show="phone.health.granted" @click="nativeCall('healthManage')">Health Connect settings</button>
+                  </div>
+                  <p class="set-help" x-show="phone.health.granted && !phone.health.background">Allow "Access data in the background" so the morning sync runs with the app closed; otherwise it runs when you next open Natlas.</p>
+                  <label class="check set-check"><input type="checkbox" role="switch" :checked="phone.health.on" @change="setPhone('healthOn', $event.target.checked)"> <span>Sync every morning</span></label>
+                  <label class="set-field" x-show="phone.health.on">At
+                    <input type="time" :value="phone.health.time" @change="$event.target.value && setPhone('healthTime', $event.target.value)">
+                  </label>
+                  <p class="set-help" x-show="phone.health.on">Writes the last 3 days and last night's sleep, and copies the newest weight and body fat to the profile.</p>
+                  <div class="set-row-btns" x-show="phone.health.granted">
+                    <button class="ghost" :disabled="phone.health.running" @click="nativeCall('healthSyncNow')">Sync now</button>
+                    <button class="ghost" :disabled="phone.health.running" @click="nativeCall('healthImport')" x-text="phone.health.imported ? 'Import history again' : 'Import all history'"></button>
+                  </div>
+                  <p class="set-help" x-show="phone.health.sources" x-text="'Steps by source: ' + phone.health.sources + '. Each minute is counted once, from the source with the most steps, so a walk seen by the phone and the band is not added twice.'"></p>
+                  <p class="set-help" x-show="healthProgress && phone.health.running" x-text="healthProgress"></p>
+                  <p class="set-help" x-show="phone.health.note && !phone.health.running" x-text="phone.health.note + (phone.health.last ? ' · ' + phone.health.last : '')"></p>
+                </div>
+              </template>
+            </div>
+
+            <div class="set-card">
+              <h2><span class="ico" x-html="icon('sync')"></span> Sync</h2>
+              <label class="check set-check"><input type="checkbox" role="switch" :checked="phone.main" @change="setPhone('main', $event.target.checked)"> <span>This phone merges sync conflicts</span></label>
+              <p class="set-help">Leave off when your server runs Natlas: it merges Syncthing conflict copies record by record within seconds. Turn on only if you use Natlas without the server.</p>
+              <p class="set-help" x-text="conflicts.copies ? conflicts.copies + ' conflict cop' + (conflicts.copies === 1 ? 'y' : 'ies') + ' waiting to be merged.' : 'No conflict copies.'"></p>
+              <div class="set-row-btns" x-show="conflicts.list.length"><button class="ghost" @click="openConflicts()" x-text="'Resolve ' + conflicts.list.length + ' record' + (conflicts.list.length === 1 ? '' : 's')"></button></div>
+            </div>
+
+            <div class="set-card">
+              <h2><span class="ico" x-html="icon('info')"></span> About</h2>
+              <p class="set-help" x-text="'Natlas ' + phone.version + ' · engine ' + phone.engine"></p>
+              <div class="set-row-btns">
+                <button class="ghost" @click="showLog()">View log</button>
+                <button class="ghost" @click="nativeCall('restartEngine')">Restart engine</button>
+                <button class="ghost" @click="nativeCall('appInfo')">App info</button>
+              </div>
+              <pre class="set-log" x-show="phoneLog" x-text="phoneLog"></pre>
+            </div>
+          </section>
+        </template>
+
         <!-- ───── PLUGIN ───── -->
         <template x-if="route.view === 'plugin' && curPlugin().id">
           <section class="view">
             <header class="view-head">
               <h1 x-text="curPlugin().title"></h1>
               <div class="head-actions">
-                <button class="ghost icon-only" x-show="curColl().list.filters?.length || curColl().list.search?.length"
+                <button class="ghost icon-only" x-show="(curColl().list.filters?.length || curColl().list.search?.length) && chShowList()"
                         @click="showFilters = !showFilters" :class="{on: showFilters || activeFilterCount()}" title="Search and filter">
                   <span class="ico" x-html="icon('search')"></span>
                   <small x-show="activeFilterCount()" x-text="activeFilterCount()"></small>
@@ -140,13 +308,13 @@
             </header>
 
             <!-- collection tabs (Health: Planned / Completed / Gym / Profile) -->
-            <nav class="tabs" x-show="curPlugin().collections?.length > 1">
+            <nav class="tabs" x-show="curPlugin().collections?.length > 1 && !isCalendar() && !isDocument()">
               <template x-for="c in (curPlugin().collections || [])" :key="c.id">
                 <a :href="'#/p/' + curPlugin().id + '/' + c.id" :aria-current="c.id === route.coll ? 'page' : null" x-text="c.label"></a>
               </template>
             </nav>
 
-            <p class="note" x-show="cur()?.note" x-text="cur()?.note"></p>
+            <p class="note" x-show="cur()?.note && !isCalendar() && !isDocument()" x-text="cur()?.note"></p>
 
             <!-- search + filters -->
             <div class="filters" x-show="showFilters" x-transition>
@@ -168,8 +336,318 @@
 
             <template x-if="!cur()"><div class="skeleton"><i></i><i></i><i></i><i></i></div></template>
 
+            <!-- document (plugins with view: document): a Markdown note as numbered sections -->
+            <template x-if="isDocument() && docLoaded()">
+              <div class="doc">
+                <aside class="doc-toc" :class="{open: doc.toc}">
+                  <p class="doc-toc-title">Contents</p>
+                  <nav>
+                    <template x-for="x in docSections()" :key="x.r._id">
+                      <a :href="'#/p/' + curPlugin().id" @click.prevent="docGo(x.r._id)" :class="{on: doc.active === x.r._id}">
+                        <span class="n" x-text="x.n"></span><span x-text="x.r.title"></span>
+                      </a>
+                    </template>
+                  </nav>
+                  <button class="ghost doc-add" x-show="!offline" @click="docAdd()"><span class="ico" x-html="icon('plus')"></span> Add section</button>
+                </aside>
+                <div class="doc-toc-bar">
+                  <button class="ghost" @click="doc.toc = !doc.toc"><span class="ico" x-html="icon('toc')"></span>
+                    <span x-text="docAll().find(r => r._id === doc.active)?.title || 'Contents'"></span></button>
+                </div>
+                <div class="backdrop doc-scrim" x-show="doc.toc" x-transition.opacity @click="doc.toc = false"></div>
+
+                <article class="doc-main">
+                  <header class="doc-hero">
+                    <div class="doc-hero-head">
+                      <div>
+                        <h2 class="doc-title"><i class="doc-dot"></i><span x-text="docFront()?.title || curPlugin().title"></span></h2>
+                        <p class="doc-sub" x-show="docFront()?.subtitle" x-text="docFront()?.subtitle"></p>
+                      </div>
+                      <button class="ghost icon-only" x-show="docColl('record') && !offline" @click="docEditFront()" title="Edit title and intro"><span class="ico" x-html="icon('edit')"></span></button>
+                    </div>
+                    <div class="md" x-html="md(docFront()?.intro)" x-effect="md(docFront()?.intro); $nextTick(() => mdEnhance($el))"></div>
+                    <p class="doc-meta"><template x-for="m in docMeta()" :key="m"><span x-text="m"></span></template></p>
+                  </header>
+
+                  <template x-for="x in docSections()" :key="x.r._id">
+                    <section class="doc-sec" :id="'sec-' + x.r._id" :data-id="x.r._id">
+                      <header>
+                        <h2><span class="num" x-text="x.n"></span><span x-text="x.r.title"></span></h2>
+                        <span class="doc-sec-acts" x-show="!offline">
+                          <button class="ghost icon-only" @click="docAdd(x.r)" title="Add a section below"><span class="ico" x-html="icon('plus')"></span></button>
+                          <button class="ghost icon-only" @click="docEdit(x.r)" title="Edit this section"><span class="ico" x-html="icon('edit')"></span></button>
+                        </span>
+                      </header>
+                      <div class="md" x-html="md(x.r.body)" x-effect="md(x.r.body); $nextTick(() => mdEnhance($el))"></div>
+                    </section>
+                  </template>
+                  <p class="empty" x-show="!docSections().length" x-text="docAll().length ? 'No section matches the search.' : 'This note has no sections yet - add the first one.'"></p>
+                  <template x-for="n in calNotes()" :key="n"><p class="note" x-text="n"></p></template>
+                </article>
+              </div>
+            </template>
+
+            <!-- calendar (plugins with view: calendar) -->
+            <template x-if="isCalendar() && calLoaded()">
+              <div class="cal" :class="'cal-v-' + cal.view">
+                <div class="cal-bar">
+                  <button class="ghost cal-today" @click="calToday()">Today</button>
+                  <button class="ghost icon-only" @click="calMove(-1)" title="Previous"><span class="ico" x-html="icon('left')"></span></button>
+                  <button class="ghost icon-only" @click="calMove(1)" title="Next"><span class="ico" x-html="icon('right')"></span></button>
+                  <h2 class="cal-title" x-text="calTitle()"></h2>
+                  <nav class="tabs cal-views" aria-label="Calendar view">
+                    <template x-for="v in ['month', 'week', 'schedule']" :key="v">
+                      <a href="" @click.prevent="calSetView(v)" :aria-current="cal.view === v ? 'page' : null" x-text="v[0].toUpperCase() + v.slice(1)"></a>
+                    </template>
+                  </nav>
+                </div>
+
+                <div class="cal-chips" x-show="calCalendars().length > 1">
+                  <template x-for="k in calCalendars()" :key="k.name">
+                    <button class="chip" :class="{off: !k.on}" :aria-pressed="k.on" @click="toggleCal(k.name)">
+                      <span x-text="k.name"></span> <small x-text="k.count"></small>
+                    </button>
+                  </template>
+                </div>
+
+                <!-- month: tap a day to see it below, tap it again to add -->
+                <template x-if="cal.view === 'month'">
+                  <div>
+                    <div class="cal-grid" @touchstart.passive="calTouch($event, 'start')" @touchend="calTouch($event, 'end')">
+                      <template x-for="w in calWeekdays()" :key="w"><div class="cal-dow" x-text="w"></div></template>
+                      <template x-for="d in calMonthDays()" :key="d.iso">
+                        <div class="cal-cell" :class="{out: d.out, today: d.today, picked: d.picked, past: d.past}" @click="calPick(d)">
+                          <span class="cal-n" x-text="d.n"></span>
+                          <template x-for="e in d.events.slice(0, 3)" :key="e.key">
+                            <button class="cal-ev" :class="calCatClass(e)" @click.stop="calOpen(e)" :title="e.title">
+                              <b x-show="e.time" x-text="e.time"></b><span x-text="e.title"></span>
+                            </button>
+                          </template>
+                          <small class="cal-more" x-show="d.events.length > 3" x-text="'+' + (d.events.length - 3)"></small>
+                        </div>
+                      </template>
+                    </div>
+                    <section class="cal-day">
+                      <header>
+                        <h3 x-text="calDateLabel(calPicked().iso, true)"></h3>
+                        <button class="ghost" x-show="calCanAdd()" @click="calNew(calPicked().iso)"><span class="ico" x-html="icon('plus')"></span> Add</button>
+                      </header>
+                      <ul class="rows" x-show="calPicked().events.length">
+                        <template x-for="e in calPicked().events" :key="e.key">
+                          <li class="row"><button class="row-main cal-item" @click="calOpen(e)">
+                            <i class="cal-dot" :class="calCatClass(e)"></i>
+                            <span class="row-text"><strong x-text="e.title"></strong><small x-text="calSub(e, calPicked().iso)"></small></span>
+                          </button></li>
+                        </template>
+                      </ul>
+                      <p class="empty" x-show="!calPicked().events.length">Nothing on this day.</p>
+                    </section>
+                  </div>
+                </template>
+
+                <!-- week: seven columns on wide screens, seven stacked days on a phone -->
+                <template x-if="cal.view === 'week'">
+                  <div class="cal-week" @touchstart.passive="calTouch($event, 'start')" @touchend="calTouch($event, 'end')">
+                    <template x-for="d in calWeek()" :key="d.iso">
+                      <section class="cal-col" :class="{today: d.today, past: d.past}">
+                        <header>
+                          <span><small x-text="_d(d.iso).toLocaleDateString(app.locale, {weekday: 'short'})"></small> <b x-text="d.n"></b></span>
+                          <button class="ghost icon-only" x-show="calCanAdd()" @click="calNew(d.iso)" title="Add on this day"><span class="ico" x-html="icon('plus')"></span></button>
+                        </header>
+                        <template x-for="e in d.events" :key="e.key">
+                          <button class="cal-ev" :class="calCatClass(e)" @click="calOpen(e)" :title="e.title">
+                            <b x-text="e.time ? calTime(e.time) : (e.end !== e.date ? 'All days' : 'All day')"></b><span x-text="e.title"></span>
+                          </button>
+                        </template>
+                      </section>
+                    </template>
+                  </div>
+                </template>
+
+                <!-- schedule: only the days that have something -->
+                <template x-if="cal.view === 'schedule'">
+                  <div class="cal-schedule">
+                    <template x-for="d in calSchedule()" :key="d.iso">
+                      <section class="cal-sday" :class="{today: d.today}">
+                        <h3><b x-text="d.n"></b><small x-text="_d(d.iso).toLocaleDateString(app.locale, {weekday: 'short', month: 'short'})"></small></h3>
+                        <ul class="rows">
+                          <template x-for="e in d.events" :key="e.key">
+                            <li class="row"><button class="row-main cal-item" @click="calOpen(e)">
+                              <i class="cal-dot" :class="calCatClass(e)"></i>
+                              <span class="row-text"><strong x-text="e.title"></strong><small x-text="calSub(e, d.iso)"></small></span>
+                            </button></li>
+                          </template>
+                        </ul>
+                      </section>
+                    </template>
+                    <p class="empty" x-show="!calSchedule().length" x-text="'Nothing in the next ' + cal.days + ' days.'"></p>
+                    <button class="ghost cal-more-btn" @click="cal.days += 90">Show more</button>
+                  </div>
+                </template>
+
+                <template x-for="n in calNotes()" :key="n"><p class="note" x-text="n"></p></template>
+              </div>
+            </template>
+
+            <!-- charts (a list with charts:, e.g. Health → Daily) -->
+            <template x-if="isCharts() && cur()">
+              <div class="charts">
+                <nav class="seg" aria-label="Views">
+                  <template x-for="t in chTabs()" :key="t[0]">
+                    <button :class="{on: ch.tab === t[0]}" @click="chSetTab(t[0])" x-text="t[1]"></button>
+                  </template>
+                </nav>
+                <p class="empty" x-show="!chDays().length && ch.tab !== 'days'">No days yet. The Natlas phone app fills this from Health Connect every morning (Settings → Health on the phone).</p>
+
+                <!-- Today -->
+                <template x-if="ch.tab === 'today' && chDays().length">
+                  <div>
+                    <p class="ch-sub">Latest day: <strong x-text="chDay(chLast().date, true)"></strong><span x-show="chLast().r.sources" x-text="' · from ' + chLast().r.sources"></span></p>
+                    <div class="rings">
+                      <template x-for="x in chRings()" :key="x.m.field">
+                        <div class="ring" :class="{done: x.pct >= 1}">
+                          <div class="ring-art" x-html="x.svg"></div>
+                          <div class="ring-text">
+                            <strong x-text="chFmt(x.m, x.last?.v, true)"></strong>
+                            <span x-text="x.m.label"></span>
+                          </div>
+                          <small x-text="x.goal ? (x.pct >= 1 ? '✓ goal ' : Math.round(x.pct * 100) + '% of ') + chFmt(x.m, x.goal) : ''"></small>
+                          <small class="dim" x-text="x.last ? chWhen(x.last.iso) : 'no data'"></small>
+                        </div>
+                      </template>
+                    </div>
+                    <div class="tiles">
+                      <template x-for="t in chTiles()" :key="t.m.field">
+                        <button class="tile" @click="ch.metric = t.m.field; chSetTab(chTrendMetrics().some(m => m.field === t.m.field) ? 'trends' : 'body')">
+                          <span class="tile-label" x-text="t.m.label"></span>
+                          <strong x-text="chFmt(t.m, t.last.v)"></strong>
+                          <span class="tile-foot">
+                            <span class="delta" :class="t.tone" x-show="t.delta !== null" x-text="chDelta(t.delta)" :title="'Compared with the 30-day average'"></span>
+                            <span x-html="t.spark"></span>
+                          </span>
+                          <small class="dim" x-text="chWhen(t.last.iso) + (t.delta !== null ? ' · vs 30-day avg' : '')"></small>
+                        </button>
+                      </template>
+                    </div>
+                    <template x-if="chWeek().length">
+                      <section class="ch-card">
+                        <h3>Last 7 days</h3>
+                        <table class="ch-table">
+                          <thead><tr><th></th><th class="num">Average a day</th><th class="num">Week before</th><th class="num">Change</th></tr></thead>
+                          <tbody>
+                            <template x-for="w in chWeek()" :key="w.m.field">
+                              <tr><td x-text="w.m.label"></td><td class="num" x-text="chFmt(w.m, w.a)"></td><td class="num" x-text="chFmt(w.m, w.b)"></td>
+                                <td class="num"><span class="delta" :class="w.tone" x-text="chDelta(w.delta) || '—'"></span></td></tr>
+                            </template>
+                          </tbody>
+                        </table>
+                      </section>
+                    </template>
+                  </div>
+                </template>
+
+                <!-- Trends -->
+                <template x-if="ch.tab === 'trends' && chDays().length">
+                  <div>
+                    <div class="chips" role="group" aria-label="Metric">
+                      <template x-for="m in chTrendMetrics()" :key="m.field">
+                        <button :class="{on: chCurMetric()?.field === m.field}" @click="ch.metric = m.field; ch.tip = null" x-text="m.label"></button>
+                      </template>
+                    </div>
+                    <section class="ch-card">
+                      <header class="ch-head">
+                        <h3 x-text="chCurMetric()?.label"></h3>
+                        <div class="seg small" role="group" aria-label="Range">
+                          <template x-for="r in [['7','7D'],['30','30D'],['90','90D'],['365','1Y'],['all','All']]" :key="r[0]">
+                            <button :class="{on: ch.range === r[0]}" @click="ch.range = r[0]; ch.tip = null" x-text="r[1]"></button>
+                          </template>
+                        </div>
+                      </header>
+                      <div class="ch-box" x-html="chTrendHTML()" @pointermove="chPick($event)" @click="chPick($event)" @pointerleave="chLeave($event)"></div>
+                    </section>
+                    <dl class="ch-stats">
+                      <template x-for="s in chTrendStats()" :key="s.label">
+                        <div><dt x-text="s.label"></dt><dd><span :class="s.tone ? 'delta ' + s.tone : ''" x-text="s.value"></span></dd><small x-show="s.sub" x-text="s.sub"></small></div>
+                      </template>
+                    </dl>
+                  </div>
+                </template>
+
+                <!-- Sleep -->
+                <template x-if="ch.tab === 'sleep' && chSleep()">
+                  <div>
+                    <section class="ch-card">
+                      <header class="ch-head">
+                        <h3>Nights</h3>
+                        <div class="seg small" role="group" aria-label="Nights">
+                          <template x-for="n in [7, 14, 30]" :key="n">
+                            <button :class="{on: ch.nights === n}" @click="ch.nights = n; ch.tip = null" x-text="n + ' nights'"></button>
+                          </template>
+                        </div>
+                      </header>
+                      <ul class="legend">
+                        <template x-for="(st, k) in chSleep().stages" :key="st.field">
+                          <li><i :class="'sw s' + k"></i><span x-text="st.label"></span></li>
+                        </template>
+                      </ul>
+                      <p class="ch-read" :class="{on: ch.tip?.id === 'sleep'}" x-text="ch.tip?.id === 'sleep' ? chNightTip(chNights()[ch.tip.i]) : 'Tap a night to see its stages'"></p>
+                      <div class="nights" @pointerleave="chLeave($event)">
+                        <div class="night-axis"><template x-for="a in chSleepAxis()" :key="a.left"><span :style="'left:' + a.left + '%'" x-text="a.label"></span></template></div>
+                        <template x-for="(n, i) in chNights()" :key="n.iso">
+                          <button class="night" :class="{sel: ch.tip?.id === 'sleep' && ch.tip.i === i}" @pointerenter="$event.pointerType === 'mouse' && (ch.tip = {id: 'sleep', i})" @click="ch.tip = {id: 'sleep', i}">
+                            <span class="night-day" x-text="n.date.toLocaleDateString(app.locale, {weekday: 'short', day: 'numeric'})"></span>
+                            <span class="night-track">
+                              <span class="night-bar" :style="n.ok ? `left:${n.a / 9.6}%;width:${(n.b - n.a) / 9.6}%` : `left:0;width:${Math.min(n.hours * 60, 960) / 9.6}%`" :class="{untimed: !n.ok}">
+                                <template x-for="z in n.stages" :key="z.k"><i :class="'s' + z.k" :style="'flex:' + z.h"></i></template>
+                                <template x-if="!n.stages.length"><i class="s-none" style="flex:1"></i></template>
+                              </span>
+                            </span>
+                            <span class="night-h" x-text="chFmt({unit: 'h'}, n.hours)"></span>
+                          </button>
+                        </template>
+                      </div>
+                    </section>
+                    <dl class="ch-stats">
+                      <template x-for="s in chSleepStats()" :key="s.label">
+                        <div><dt><i x-show="s.key !== undefined" :class="'sw s' + s.key"></i><span x-text="s.label"></span></dt><dd x-text="s.value"></dd><small x-show="s.sub" x-text="s.sub"></small></div>
+                      </template>
+                    </dl>
+                  </div>
+                </template>
+
+                <!-- Body -->
+                <template x-if="ch.tab === 'body'">
+                  <div>
+                    <div class="seg small" role="group" aria-label="Range">
+                      <template x-for="r in [['30','30D'],['90','90D'],['365','1Y'],['all','All']]" :key="r[0]">
+                        <button :class="{on: ch.bodyRange === r[0]}" @click="ch.bodyRange = r[0]; ch.tip = null" x-text="r[1]"></button>
+                      </template>
+                    </div>
+                    <template x-for="b in chBodyCards()" :key="b.m.field">
+                      <section class="ch-card">
+                        <header class="ch-head">
+                          <h3 x-text="b.m.label"></h3>
+                          <span class="dim" x-text="'Latest ' + chFmt(b.m, b.latest.v) + ' · ' + chWhen(b.latest.iso)"></span>
+                        </header>
+                        <div class="ch-box" x-show="b.html" x-html="b.html" @pointermove="chPick($event)" @click="chPick($event)" @pointerleave="chLeave($event)"></div>
+                        <p class="dim" x-show="!b.html">Not enough readings in this range.</p>
+                        <dl class="ch-stats inline">
+                          <div><dt>Change</dt><dd><span class="delta" :class="b.tone" x-text="chSigned(b.m, b.ch)"></span></dd></div>
+                          <div><dt>7-day average</dt><dd x-text="chFmt(b.m, b.avg7)"></dd></div>
+                          <div><dt>Lowest</dt><dd x-text="chFmt(b.m, b.lo)"></dd></div>
+                          <div><dt>Highest</dt><dd x-text="chFmt(b.m, b.hi)"></dd></div>
+                          <div><dt>Readings</dt><dd x-text="b.list.length"></dd></div>
+                        </dl>
+                      </section>
+                    </template>
+                    <p class="empty" x-show="!chBodyCards().length">No body measurements yet.</p>
+                  </div>
+                </template>
+              </div>
+            </template>
+
             <!-- single record (Health profile) -->
-            <template x-if="cur() && curColl().kind === 'record'">
+            <template x-if="cur() && curColl().kind === 'record' && !isCalendar() && !isDocument()">
               <div class="record-view">
                 <button class="primary" @click="openRecord(curColl(), cur()?.records?.[0])">Edit</button>
                 <dl class="facts">
@@ -181,7 +659,7 @@
             </template>
 
             <!-- summary (Inventory) -->
-            <template x-if="cur() && curColl().summary">
+            <template x-if="cur() && curColl().summary && !isCalendar() && !isDocument()">
               <details class="summary">
                 <summary>Summary <small x-text="visibleRecords().length + ' items'"></small></summary>
                 <label class="inline">Group by
@@ -207,7 +685,7 @@
             </template>
 
             <!-- the list -->
-            <template x-if="cur() && curColl().kind === 'list'">
+            <template x-if="cur() && curColl().kind === 'list' && !isCalendar() && !isDocument() && chShowList()">
               <div>
                 <template x-for="g in groupedRecords()" :key="g.label">
                   <section class="group">
@@ -257,7 +735,8 @@
               </div>
             </template>
 
-            <button class="fab" x-show="curColl().kind === 'list' && !curColl().readonly && !selecting && !offline" @click="openNew(curColl())" title="Add">
+            <button class="fab" x-show="curColl().kind === 'list' && !curColl().readonly && !selecting && !offline"
+                    @click="isCalendar() ? calNew(cal.picked || cal.anchor) : isDocument() ? docAdd() : openNew(curColl())" title="Add">
               <span class="ico" x-html="icon('plus')"></span>
             </button>
           </section>
@@ -274,7 +753,7 @@
             <span class="ico" x-html="icon(p.icon)"></span><span x-text="p.title"></span>
           </a>
         </template>
-        <button @click="moreOpen = true" :class="{on: app.plugins.slice(3).some(p => p.id === route.plugin)}">
+        <button @click="moreOpen = true" :class="{on: app.plugins.slice(3).some(p => p.id === route.plugin) || route.view === 'phone'}">
           <span class="ico" x-html="icon('more')"></span><span>More</span>
         </button>
       </nav>
@@ -286,7 +765,9 @@
           <a :href="'#/p/' + p.id" @click="moreOpen = false"><span class="ico" x-html="icon(p.icon)"></span><span x-text="p.title"></span></a>
         </template>
         <button class="ghost" @click="cycleTheme()"><span class="ico" x-html="icon(theme === 'light' ? 'sun' : theme === 'dark' ? 'moon' : 'auto')"></span><span x-text="'Theme: ' + theme"></span></button>
-        <button class="ghost" @click="logout()"><span class="ico" x-html="icon('logout')"></span>Log out <small x-text="user"></small></button>
+        <a href="#/phone" x-show="native" @click="moreOpen = false"><span class="ico" x-html="icon('gear')"></span><span>Settings</span></a>
+        <button class="ghost" x-show="!native && device.available" @click="openDevice()"><span class="ico" x-html="icon('lock')"></span><span x-text="device.remembered ? 'This device: stays signed in' : 'This device: ' + device.hours + ' h session'"></span></button>
+        <button class="ghost" x-show="!native" @click="logout()"><span class="ico" x-html="icon('logout')"></span>Log out <small x-text="user"></small></button>
       </div>
 
       <!-- selection bar -->
@@ -313,7 +794,7 @@
       </ul>
 
       <!-- record sheet -->
-      <dialog class="sheet" x-ref="sheet" @close="sheetClosed()" @cancel.prevent="closeSheet()">
+      <dialog class="sheet" :class="{wide: sheetWide()}" x-ref="sheet" @close="sheetClosed()" @cancel.prevent="closeSheet()">
         <template x-if="sheet.coll">
           <form @submit.prevent="saveSheet()" novalidate>
             <header>
@@ -332,7 +813,23 @@
                   <template x-if="f.type === 'bool'">
                     <label class="check"><input type="checkbox" role="switch" x-model="sheet.values[f.key]" :disabled="isLocked(f)"> <span x-text="f.label"></span></label>
                   </template>
-                  <template x-if="f.type !== 'bool'">
+                  <template x-if="f.type === 'markdown' && !isLocked(f)">
+                    <div class="md-edit">
+                      <div class="md-edit-head">
+                        <span x-text="f.label"></span>
+                        <span class="md-tabs">
+                          <button type="button" :class="{on: !mdPreview}" @click="mdPreview = false">Write</button>
+                          <button type="button" :class="{on: mdPreview}" @click="mdPreview = true">Preview</button>
+                        </span>
+                      </div>
+                      <textarea x-show="!mdPreview" x-model="sheet.values[f.key]" rows="18" spellcheck="true" :placeholder="f.placeholder || ''"></textarea>
+                      <div class="md md-preview" x-show="mdPreview" x-html="mdPreview ? md(sheet.values[f.key]) : ''"
+                           x-effect="mdPreview && md(sheet.values[f.key]); $nextTick(() => mdPreview && mdEnhance($el))"></div>
+                      <small class="help" x-show="f.help && !sheet.errors[f.key]" x-text="f.help"></small>
+                      <small class="field-error" x-show="sheet.errors[f.key]" x-text="sheet.errors[f.key]"></small>
+                    </div>
+                  </template>
+                  <template x-if="f.type !== 'bool' && !(f.type === 'markdown' && !isLocked(f))">
                     <label>
                       <span><span x-text="f.label"></span><b x-show="f.required" title="required"> *</b></span>
                       <template x-if="isLocked(f)">
@@ -358,7 +855,7 @@
                           </datalist>
                         </span>
                       </template>
-                      <template x-if="!isLocked(f) && ['text','url','number','money','date','anniversary'].includes(f.type)">
+                      <template x-if="!isLocked(f) && ['text','url','number','money','date','time','anniversary'].includes(f.type)">
                         <span class="with-unit">
                           <input :type="inputType(f)" x-model="sheet.values[f.key]" :placeholder="f.placeholder || ''"
                                  :inputmode="['number','money'].includes(f.type) ? 'decimal' : null" step="any">
@@ -398,6 +895,9 @@
                       <button type="button" @click="moveRecord(1)" title="Move down">↓</button>
                     </span>
                   </template>
+                  <a class="button ghost" x-show="sheet.coll?.link" :href="linkFor(sheet.coll, sheet.record)" target="_blank" rel="noopener noreferrer">
+                    <span class="ico" x-html="icon('link')"></span> <span x-text="sheet.coll?.link?.label"></span>
+                  </a>
                   <button type="button" class="danger" x-show="!sheet.coll?.readonly && sheet.coll?.kind === 'list'" @click="deleteRecord()" :disabled="offline">Delete</button>
                 </span>
               </template>
@@ -433,6 +933,59 @@
               <button type="button" class="ghost" @click="$refs.ask.close()">Cancel</button>
             </footer>
           </form>
+        </template>
+      </dialog>
+
+
+      <!-- this device: the device key keeps this browser signed in until logout -->
+      <dialog class="ask" x-ref="device" @close="device.open = false">
+        <template x-if="device.open">
+          <form @submit.prevent="saveDevice()" novalidate>
+            <h2>This device</h2>
+            <p class="set-help" x-show="device.remembered">This browser stays signed in until you log out, also after the next login. Changing <code>NATLAS_DEVICE_KEY</code> on the server signs it out.</p>
+            <p class="set-help" x-show="!device.remembered" x-text="'Without the device key a login lasts ' + device.hours + ' hours. Enter the key from NATLAS_DEVICE_KEY in .env to stay signed in on this browser until you log out.'"></p>
+            <label x-show="!device.remembered"><span>Device key</span>
+              <input type="password" x-model="device.key" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="paste the key">
+            </label>
+            <p class="error" x-show="device.error" x-text="device.error"></p>
+            <footer>
+              <button type="submit" class="primary" x-show="!device.remembered" :disabled="device.busy || !device.key.trim()">Remember this device</button>
+              <button type="button" class="danger" x-show="device.remembered" :disabled="device.busy" @click="forgetDevice()">Forget this device</button>
+              <button type="button" class="ghost" @click="$refs.device.close()">Close</button>
+            </footer>
+          </form>
+        </template>
+      </dialog>
+
+      <!-- sync conflicts: pick a version per record -->
+      <dialog class="sheet conflicts" x-ref="conflicts" @close="conflicts.open = false">
+        <template x-if="conflicts.open && curConflict()">
+          <div class="conf">
+            <header>
+              <h2 x-text="(curConflict().title || curConflict().record)"></h2>
+              <button type="button" class="ghost icon-only" @click="$refs.conflicts.close()" title="Close"><span class="ico" x-html="icon('x')"></span></button>
+            </header>
+            <div class="conf-body">
+              <p class="note" x-text="curConflict().plugin_title + ' · ' + curConflict().label + ' · ' + curConflict().file + ' — ' + (conflicts.i + 1) + ' of ' + conflicts.list.length"></p>
+              <p class="set-help">Two devices changed this record before Syncthing could pass the change on. The file keeps the first version until you choose.</p>
+              <table class="conf-table">
+                <thead><tr><th></th><th>In the file now</th><th>Other device</th></tr></thead>
+                <tbody>
+                  <template x-for="f in curConflict().fields" :key="f.key">
+                    <tr :class="{diff: !f.same}"><th x-text="f.label"></th><td x-text="f.kept || '—'"></td><td x-text="f.other || '—'"></td></tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <footer>
+              <button class="primary" :disabled="conflicts.busy || offline" @click="resolveConflict('kept')">Keep this</button>
+              <button :disabled="conflicts.busy || offline" @click="resolveConflict('other')">Use other</button>
+              <span class="conf-nav" x-show="conflicts.list.length > 1">
+                <button class="ghost icon-only" :disabled="conflicts.i === 0" @click="conflicts.i--" title="Previous"><span class="ico" x-html="icon('left')"></span></button>
+                <button class="ghost icon-only" :disabled="conflicts.i >= conflicts.list.length - 1" @click="conflicts.i++" title="Next"><span class="ico" x-html="icon('right')"></span></button>
+              </span>
+            </footer>
+          </div>
         </template>
       </dialog>
 

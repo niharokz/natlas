@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget picker preview: Sleep (sample data). -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+    <ImageView android:layout_width="match_parent" android:layout_height="match_parent"
+        android:src="@drawable/widget_shape" android:scaleType="fitXY" android:importantForAccessibility="no" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="14dp">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Sleep · last night" android:textSize="11sp" android:textColor="@color/w_muted" android:maxLines="1" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="7h 12m" android:textSize="26sp" android:textStyle="bold" android:textColor="@color/w_text" android:maxLines="1" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="11:40 pm – 6:55 am" android:textSize="12sp" android:textColor="@color/w_muted" android:maxLines="1" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="14dp" android:orientation="horizontal" android:gravity="bottom" android:layout_marginTop="8dp">
+            <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:paddingStart="4dp" android:paddingEnd="4dp"><ImageView android:layout_width="match_parent" android:layout_height="8dp" android:layout_gravity="bottom" android:src="@drawable/widget_pill" android:scaleType="fitXY" android:tint="@color/accent" /></FrameLayout>
+            <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:paddingStart="4dp" android:paddingEnd="4dp"><ImageView android:layout_width="match_parent" android:layout_height="8dp" android:layout_gravity="bottom" android:src="@drawable/widget_pill" android:scaleType="fitXY" android:tint="@color/accent" /></FrameLayout>
+            <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:paddingStart="4dp" android:paddingEnd="4dp"><ImageView android:layout_width="match_parent" android:layout_height="8dp" android:layout_gravity="bottom" android:src="@drawable/widget_pill" android:scaleType="fitXY" android:tint="@color/accent" /></FrameLayout>
+            <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:paddingStart="4dp" android:paddingEnd="4dp"><ImageView android:layout_width="match_parent" android:layout_height="8dp" android:layout_gravity="bottom" android:src="@drawable/widget_pill" android:scaleType="fitXY" android:tint="@color/accent" /></FrameLayout>
+        </LinearLayout>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Deep 1h05m  REM 1h25m  Light 4h21m" android:textSize="10sp" android:textColor="@color/w_muted" android:maxLines="1" />
+    </LinearLayout>
+</FrameLayout>

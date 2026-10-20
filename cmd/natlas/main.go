@@ -4,6 +4,7 @@
 //	natlas check           validate .env, natlas.yml and every plugin.yml, then exit
 //	natlas hash-password   read a password on stdin, print NATLAS_PASSWORD_HASH
 //	natlas health          exit 0 if the local server answers (Docker HEALTHCHECK)
+//	natlas cli             one JSON request on stdin, JSON answer on stdout (phone widgets)
 //	natlas version         print the version
 //
 // Configuration comes from the environment (.env) and natlas.yml; plugins
@@ -13,24 +14,32 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 	_ "time/tzdata" // the container image has no zoneinfo; TZ=Asia/Kolkata still works
 
+	"natlas/examples"
 	"natlas/internal/api"
 	"natlas/internal/auth"
 	"natlas/internal/config"
+	"natlas/internal/merge"
+	"natlas/internal/store"
 	"natlas/web"
 )
 
-// version is set at build time: -ldflags "-X main.version=2.1.0".
+// version is set at build time: -ldflags "-X main.version=1.0.0".
 var version = "dev"
 
 func main() {
@@ -52,8 +61,14 @@ func main() {
 		case "health":
 			health()
 			return
+		case "cli":
+			cli()
+			return
+		case "bans", "unban":
+			bans(os.Args[1], os.Args[2:])
+			return
 		default:
-			log.Fatalf("unknown command %q (commands: check, hash-password, health, version)", os.Args[1])
+			log.Fatalf("unknown command %q (commands: check, cli, hash-password, health, version, bans, unban <ip|all>)", os.Args[1])
 		}
 	}
 	serve()
@@ -65,17 +80,33 @@ func serve() {
 		log.Fatalf("cannot start:\n%v", err)
 	}
 	s := app.settings
-	if s.PasswordHash == "" {
+	store.LockDir = s.LockDir
+	if s.Local {
+		log.Printf("phone mode: data %s, merging conflicts: %v", app.app.DataDir, s.Main)
+	} else if s.PasswordHash == "" {
 		log.Println("tip: store a hash instead of the plain password - see `natlas hash-password` in the README")
 	}
-	if !s.CookieSecure {
+	if !s.CookieSecure && !s.Local {
 		log.Println("WARNING: NATLAS_COOKIE_SECURE=false - only use this for plain-http testing")
 	}
 	// A missing data file just shows as an empty list, so say so loudly here:
 	// it almost always means NATLAS_DATA_DIR points at the wrong folder.
 	for _, p := range app.app.Loaded {
-		if _, err := os.Stat(p.File); err != nil {
-			log.Printf("WARNING %s: data file %s not found (%v) - check NATLAS_DATA_DIR in .env and data_dir in natlas.yml", p.ID, p.File, err)
+		checked := map[string]bool{}
+		for _, c := range p.Collections {
+			path := p.FileOf(c)
+			if checked[path] {
+				continue
+			}
+			checked[path] = true
+			if _, err := os.Stat(path); err == nil {
+				continue
+			}
+			if c.ReadOnly {
+				log.Printf("WARNING %s: data file %s not found - check NATLAS_DATA_DIR in .env and data_dir in natlas.yml", p.ID, path)
+			} else {
+				log.Printf("note %s: %s does not exist yet - it is created on the first save (if you expected data, check NATLAS_DATA_DIR)", p.ID, path)
+			}
 		}
 	}
 
@@ -85,7 +116,10 @@ func serve() {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Write([]byte("ok\n"))
 	})
-	(&api.Server{App: app.app, Auth: authn}).Register(mux)
+	(&api.Server{App: app.app, Auth: authn, Main: s.Main}).Register(mux)
+	if s.Main {
+		go mergeLoop(app.app) // fold Syncthing conflict copies back in
+	}
 	site, err := web.Handler(s.WebDir, app.app, version)
 	if err != nil {
 		log.Fatalf("cannot load web files: %v", err)
@@ -94,7 +128,7 @@ func serve() {
 
 	srv := &http.Server{
 		Addr:              s.Addr,
-		Handler:           recoverer(accessLog(authn, securityHeaders(s.CookieSecure, mux))),
+		Handler:           recoverer(accessLog(authn, authn.Guard(securityHeaders(s.CookieSecure, mux)))),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -108,6 +142,14 @@ func serve() {
 		}
 		log.Printf("natlas %s listening on %s - plugins: %v - today is %s (%s)", version, s.Addr, ids,
 			time.Now().Format("2006-01-02"), time.Local)
+		if !s.Local {
+			remember := "off (NATLAS_DEVICE_KEY not set: every login lasts " + strconv.Itoa(s.SessionHours) + " h)"
+			if s.DeviceKey != "" {
+				remember = "on (browsers given the device key stay signed in until logout; others " + strconv.Itoa(s.SessionHours) + " h)"
+			}
+			log.Printf("login: %d failures ban a public IP for %d days (%s) · remember device: %s",
+				s.MaxFailures, s.BanDays, filepath.Join(s.StateDir, "bans.yml"), remember)
+		}
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal(err)
 		}
@@ -120,6 +162,79 @@ func serve() {
 	defer cancel()
 	_ = srv.Shutdown(ctx) // let in-flight saves finish
 	log.Println("natlas stopped")
+}
+
+// mergeLoop merges Syncthing conflict copies every 15 s (main device only).
+func mergeLoop(app *config.App) {
+	for {
+		rep, err := merge.Scan(app, time.Now())
+		if err != nil {
+			log.Printf("[merge] %v", err)
+		}
+		if rep.Copies > 0 {
+			log.Printf("[merge] %d conflict cop(ies) merged: %d record(s) added back, %d waiting for a decision", rep.Copies, rep.Added, rep.Pending)
+		}
+		time.Sleep(15 * time.Second)
+	}
+}
+
+// cli answers one request from the phone app's widgets without a server:
+// {"op":"snapshot"} | {"op":"action",plugin,coll,id,rev,action} | {"op":"patch",…,values} | {"op":"quick",plugin,coll,text} | {"op":"merge"}.
+// Exit code 0 even for a refused request; the JSON carries "error" and "status".
+func cli() {
+	out := json.NewEncoder(os.Stdout)
+	var req map[string]any
+	if err := json.NewDecoder(io.LimitReader(os.Stdin, 1<<20)).Decode(&req); err != nil {
+		out.Encode(map[string]any{"status": 400, "error": "bad request: " + err.Error()})
+		os.Exit(1)
+	}
+	if req["op"] == "demo" { // {"op":"demo","dir":…}: copy the sample data into an empty folder
+		dir, _ := req["dir"].(string)
+		n, err := writeDemo(dir)
+		if err != nil {
+			out.Encode(map[string]any{"status": 500, "error": err.Error()})
+			os.Exit(1)
+		}
+		out.Encode(map[string]any{"status": 200, "written": n})
+		return
+	}
+	app, err := load()
+	if err != nil {
+		out.Encode(map[string]any{"status": 500, "error": err.Error()})
+		os.Exit(1)
+	}
+	store.LockDir = app.settings.LockDir
+	srv := &api.Server{App: app.app, Auth: auth.New(app.settings), Main: app.settings.Main}
+	code, res := srv.Exec(req)
+	res["status"] = code
+	out.Encode(res)
+}
+
+// writeDemo copies the built-in sample files into dir, never over an existing file.
+func writeDemo(dir string) (int, error) {
+	if dir == "" {
+		return 0, errors.New("dir is required")
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return 0, err
+	}
+	entries, err := fs.ReadDir(examples.Data, "data")
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, e := range entries {
+		dst := filepath.Join(dir, e.Name())
+		if _, err := os.Stat(dst); err == nil {
+			continue
+		}
+		b, _ := fs.ReadFile(examples.Data, "data/"+e.Name())
+		if err := os.WriteFile(dst, b, 0o644); err != nil {
+			return n, err
+		}
+		n++
+	}
+	return n, nil
 }
 
 type loaded struct {
@@ -148,6 +263,39 @@ func load() (*loaded, error) {
 // Keep the password out of your shell history:
 //
 //	read -rs PW && printf '%s' "$PW" | docker compose run --rm -T natlas hash-password
+//
+// bans lists the banned IPs; unban <ip|all> lifts bans. The running server
+// picks the change up at once (it re-reads bans.yml when it changes).
+func bans(cmd string, args []string) {
+	dir := os.Getenv("NATLAS_STATE_DIR")
+	if dir == "" {
+		dir = filepath.Dir(os.Getenv("NATLAS_CONFIG"))
+		if os.Getenv("NATLAS_CONFIG") == "" {
+			dir = "."
+		}
+	}
+	b := auth.OpenBans(filepath.Join(dir, "bans.yml"), 7, 5)
+	if cmd == "unban" {
+		if len(args) != 1 {
+			log.Fatal("usage: natlas unban <ip|all>")
+		}
+		n, err := b.Unban(args[0])
+		if err != nil {
+			log.Fatalf("cannot save: %v", err)
+		}
+		fmt.Printf("lifted %d ban(s)\n", n)
+		return
+	}
+	list := b.List()
+	if len(list) == 0 {
+		fmt.Println("no banned addresses")
+		return
+	}
+	for _, x := range list {
+		fmt.Printf("%-40s until %s  (since %s, %s)\n", x.IP, x.Until.Format("2006-01-02 15:04"), x.Since.Format("2006-01-02 15:04"), x.Reason)
+	}
+}
+
 func hashPassword() {
 	fmt.Fprintln(os.Stderr, "Password (then Enter):")
 	line, err := bufio.NewReader(os.Stdin).ReadString('\n')

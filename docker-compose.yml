@@ -4,15 +4,29 @@ services:
     build:
       context: .
       args:
-        VERSION: 2.1.0
+        VERSION: 1.0.0
     image: natlas:local
     container_name: natlas
     restart: unless-stopped
     init: true
     user: "${PUID:-1000}:${PGID:-1000}"      # write data files as your user, not root
-    env_file: .env
+    # Only these variables reach the container, so .env can be a file shared
+    # with other services without handing their secrets to Natlas.
+    environment:
+      NATLAS_USERNAME: ${NATLAS_USERNAME:-}   # missing values are reported by `natlas check`
+      NATLAS_PASSWORD_HASH: ${NATLAS_PASSWORD_HASH:-}
+      NATLAS_PASSWORD: ${NATLAS_PASSWORD:-}
+      NATLAS_SECRET_KEY: ${NATLAS_SECRET_KEY:-}
+      NATLAS_TRUST_PROXY: ${NATLAS_TRUST_PROXY:-true}
+      NATLAS_COOKIE_SECURE: ${NATLAS_COOKIE_SECURE:-true}
+      NATLAS_DEVICE_KEY: ${NATLAS_DEVICE_KEY:-}         # browsers given this key stay signed in until logout
+      NATLAS_SESSION_HOURS: ${NATLAS_SESSION_HOURS:-12} # login life without the device key
+      NATLAS_MAX_FAILURES: ${NATLAS_MAX_FAILURES:-5}    # failed logins (per day, per IP) before the ban
+      NATLAS_BAN_DAYS: ${NATLAS_BAN_DAYS:-7}            # how long a public IP stays banned
+      TZ: ${TZ:-UTC}
     volumes:
-      - ./natlas.yml:/config/natlas.yml:ro
+      # natlas.yml + bans.yml (writable: bans survive restarts). Default ./config
+      - ${NATLAS_CONFIG_DIR:-./config}:/config
       - ./plugins:/app/plugins:ro            # edit a plugin.yml, then: docker compose restart natlas
       - ${NATLAS_DATA_DIR:?set NATLAS_DATA_DIR in .env}:/data
     read_only: true

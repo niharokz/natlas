@@ -19,7 +19,7 @@ const API = 'natlas-api';
 const v = (p) => p + '?v=' + VERSION;
 const SHELL_FILES = [
   '/app', '/manifest.webmanifest',
-  v('/assets/app.js'), v('/assets/natlas.css'), v('/assets/vendor/nss.min.css'), v('/assets/vendor/alpine.min.js'),
+  v('/assets/app.js'), v('/assets/vendor/marked.min.js'), v('/assets/natlas.css'), v('/assets/vendor/nss.min.css'), v('/assets/vendor/alpine.min.js'),
   v('/assets/icons/favicon.png'), v('/assets/icons/apple-touch-icon.png'),
   '/assets/icons/icon-192.png', '/assets/icons/icon-512.png', '/assets/icons/maskable-512.png',
 ];

@@ -73,7 +73,7 @@ func convert(f *config.Field, raw any, current store.Record) (any, error) {
 	if raw == nil {
 		return nil, nil
 	}
-	if s, ok := raw.(string); ok && f.Type != "textarea" && f.Type != "list" {
+	if s, ok := raw.(string); ok && f.Type != "textarea" && f.Type != "list" && f.Type != "markdown" {
 		raw = strings.TrimSpace(s)
 	}
 	if query.IsEmpty(raw) && f.Type != "bool" {
@@ -104,6 +104,12 @@ func convert(f *config.Field, raw any, current store.Record) (any, error) {
 			return nil, fmt.Errorf("is not a date (expected like %s)", dates.Format(dates.Today(), f.Format))
 		}
 		return dates.Format(t, f.Format), nil
+	case "time":
+		t, ok := dates.Clock(query.Text(raw))
+		if !ok {
+			return nil, fmt.Errorf("is not a time (expected like 18:30 or 6:30pm)")
+		}
+		return t, nil
 	case "list":
 		var lines []string
 		switch x := raw.(type) {

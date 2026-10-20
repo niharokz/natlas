@@ -154,3 +154,36 @@ func NextAnniversary(value string, today time.Time) (Anniversary, bool) {
 	}
 	return Anniversary{}, false
 }
+
+// clockRe matches "20:30", "8:30pm", "8pm", "8 pm", "8.30am".
+var clockRe = regexp.MustCompile(`^(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?$`)
+
+// Clock normalises a time of day to "HH:MM" (24-hour). A bare number ("8")
+// is not a time, so "Buy 2 apples" stays text; "12.10" needs am/pm, as it
+// could be a date.
+func Clock(s string) (string, bool) {
+	s = strings.ToLower(strings.TrimSpace(s))
+	m := clockRe.FindStringSubmatch(s)
+	if m == nil || (m[2] == "" && m[3] == "") || (strings.Contains(s, ".") && m[3] == "") {
+		return "", false
+	}
+	h, _ := strconv.Atoi(m[1])
+	min := 0
+	if m[2] != "" {
+		min, _ = strconv.Atoi(m[2])
+	}
+	switch m[3] {
+	case "am", "pm":
+		if h < 1 || h > 12 {
+			return "", false
+		}
+		h %= 12
+		if m[3] == "pm" {
+			h += 12
+		}
+	}
+	if h > 23 || min > 59 {
+		return "", false
+	}
+	return fmt.Sprintf("%02d:%02d", h, min), true
+}

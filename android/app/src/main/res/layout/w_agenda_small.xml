@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Agenda at 4×1: the next entry on one line. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root" android:layout_width="match_parent" android:layout_height="match_parent">
+    <ImageView android:id="@+id/bg" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:src="@drawable/widget_shape" android:scaleType="fitXY" android:importantForAccessibility="no" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center_vertical"
+        android:orientation="horizontal" android:paddingStart="16dp" android:paddingEnd="16dp">
+        <ImageView android:id="@+id/dot" android:layout_width="12dp" android:layout_height="12dp" android:layout_marginEnd="12dp" android:src="@drawable/widget_dot" android:importantForAccessibility="no" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+            <TextView android:id="@+id/title" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textSize="15sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+            <TextView android:id="@+id/sub" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textSize="12sp" android:maxLines="1" android:ellipsize="end" />
+        </LinearLayout>
+        <TextView android:id="@+id/when_text" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginStart="8dp" android:textSize="13sp" android:textStyle="bold" />
+    </LinearLayout>
+</FrameLayout>

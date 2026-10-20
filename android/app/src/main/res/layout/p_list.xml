@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget picker preview: List (sample data). -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+    <ImageView android:layout_width="match_parent" android:layout_height="match_parent"
+        android:src="@drawable/widget_shape" android:scaleType="fitXY" android:importantForAccessibility="no" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="14dp">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Events" android:textSize="15sp" android:textStyle="bold" android:textColor="@color/w_text" android:maxLines="1" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="3 open" android:textSize="11sp" android:textColor="@color/w_muted" android:maxLines="1" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
+            <CheckBox android:layout_width="36dp" android:layout_height="36dp" android:clickable="false" />
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Renew passport" android:textSize="14sp" android:textColor="@color/w_text" android:maxLines="1" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="1 Oct · todo" android:textSize="11sp" android:textColor="@color/w_muted" android:maxLines="1" />
+            </LinearLayout>
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
+            <CheckBox android:layout_width="36dp" android:layout_height="36dp" android:clickable="false" />
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Water plants" android:textSize="14sp" android:textColor="@color/w_text" android:maxLines="1" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Weekly · home" android:textSize="11sp" android:textColor="@color/w_muted" android:maxLines="1" />
+            </LinearLayout>
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
+            <CheckBox android:layout_width="36dp" android:layout_height="36dp" android:clickable="false" />
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="City 10K race" android:textSize="14sp" android:textColor="@color/w_text" android:maxLines="1" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Sun 25 Oct · run" android:textSize="11sp" android:textColor="@color/w_muted" android:maxLines="1" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

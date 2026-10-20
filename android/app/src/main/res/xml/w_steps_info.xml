@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/w_steps_desc"
+    android:initialLayout="@layout/w_health_ring"
+    android:previewLayout="@layout/p_steps"
+    android:minWidth="40dp" android:minHeight="40dp"
+    android:minResizeWidth="40dp" android:minResizeHeight="40dp"
+    android:targetCellWidth="2" android:targetCellHeight="2"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen" />

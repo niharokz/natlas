@@ -1,6 +1,7 @@
 # secrets and personal notes - never commit
 .env
 natlas.yml
+/config/
 .private-words
 HOMELAB.md
 
@@ -12,3 +13,16 @@ HOMELAB.md
 # build output
 /natlas
 /bin/
+
+# patch zips kept locally (applied on the server, never committed)
+/patch/
+
+# Android build (android/build.sh)
+android/.env
+android/.cache/
+android/.gradle/
+android/dist/
+android/app/build/
+android/app/src/main/jniLibs/
+android/local.properties
+android/gradlew.bat

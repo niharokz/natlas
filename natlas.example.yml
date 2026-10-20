@@ -15,9 +15,10 @@ data_dir: /data
 plugins:
   - events
   - subscriptions
-  - birthdays
+  - calendar
   - health
   - inventory
+  - architecture
 
 # Shared dropdown lists. Use them in a plugin.yml field as `options: "@name"`.
 lists: {}

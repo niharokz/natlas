@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Month widget: header with arrows, weekday names, 6 × 7 day cells (number + coloured dots). Generated grid. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root" android:layout_width="match_parent" android:layout_height="match_parent">
+    <ImageView android:id="@+id/bg" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:src="@drawable/widget_shape" android:scaleType="fitXY" android:importantForAccessibility="no" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical"
+        android:paddingStart="8dp" android:paddingEnd="8dp" android:paddingTop="6dp" android:paddingBottom="8dp">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="40dp" android:gravity="center_vertical" android:orientation="horizontal">
+            <TextView android:id="@+id/title" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center_vertical" android:paddingStart="8dp" android:textSize="15sp" android:textStyle="bold" android:background="@drawable/row_ripple" />
+            <ImageView android:id="@+id/prev" android:layout_width="40dp" android:layout_height="40dp" android:padding="10dp"
+                android:src="@drawable/ic_left" android:contentDescription="Previous month" android:background="@drawable/key_ripple" />
+            <ImageView android:id="@+id/next" android:layout_width="40dp" android:layout_height="40dp" android:padding="10dp"
+                android:src="@drawable/ic_right" android:contentDescription="Next month" android:background="@drawable/key_ripple" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingBottom="2dp">
+            <TextView android:id="@+id/w0" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:gravity="center" android:textSize="9sp" android:textStyle="bold" android:fontFamily="monospace" android:textAllCaps="true" />
+            <TextView android:id="@+id/w1" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:gravity="center" android:textSize="9sp" android:textStyle="bold" android:fontFamily="monospace" android:textAllCaps="true" />
+            <TextView android:id="@+id/w2" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:gravity="center" android:textSize="9sp" android:textStyle="bold" android:fontFamily="monospace" android:textAllCaps="true" />
+            <TextView android:id="@+id/w3" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:gravity="center" android:textSize="9sp" android:textStyle="bold" android:fontFamily="monospace" android:textAllCaps="true" />
+            <TextView android:id="@+id/w4" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:gravity="center" android:textSize="9sp" android:textStyle="bold" android:fontFamily="monospace" android:textAllCaps="true" />
+            <TextView android:id="@+id/w5" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:gravity="center" android:textSize="9sp" android:textStyle="bold" android:fontFamily="monospace" android:textAllCaps="true" />
+            <TextView android:id="@+id/w6" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:gravity="center" android:textSize="9sp" android:textStyle="bold" android:fontFamily="monospace" android:textAllCaps="true" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/r0" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+            <TextView android:id="@+id/c0" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c1" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c2" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c3" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c4" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c5" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c6" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/r1" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+            <TextView android:id="@+id/c7" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c8" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c9" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c10" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c11" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c12" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c13" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/r2" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+            <TextView android:id="@+id/c14" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c15" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c16" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c17" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c18" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c19" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c20" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/r3" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+            <TextView android:id="@+id/c21" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c22" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c23" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c24" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c25" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c26" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c27" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/r4" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+            <TextView android:id="@+id/c28" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c29" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c30" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c31" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c32" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c33" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c34" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/r5" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+            <TextView android:id="@+id/c35" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c36" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c37" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c38" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c39" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c40" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+            <TextView android:id="@+id/c41" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:background="@drawable/row_ripple" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

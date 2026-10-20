@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#3a807a">
-<meta name="description" content="Natlas: a small self-hosted app for your personal lists - events, subscriptions, birthdays, health, inventory - kept as plain YAML and CSV files. One Go binary, installable on your phone, plugins written in YAML.">
+<meta name="description" content="Natlas: a small self-hosted app for your personal lists - events, subscriptions, calendar, health, inventory - kept as plain YAML and CSV files. One Go binary, installable on your phone, plugins written in YAML.">
 <title>Natlas - your lists, in plain files</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/assets/icons/icon.svg?v={{VERSION}}" type="image/svg+xml">
@@ -22,7 +22,7 @@
 
   <h1 class="lead">Your lists, <em>in plain files</em>, <em>one tap away</em>.</h1>
   <p class="intro">Natlas is a small self-hosted app for the lists that run your life: todos and reminders,
-    bills and renewals, birthdays, races and workouts, the things you own. It installs on your phone like an app,
+    bills and renewals, your calendar, races and workouts, the things you own. It installs on your phone like an app,
     and every list is a plain YAML or CSV file you can open in any editor, sync with your notes and change with your own scripts.</p>
   <div class="cta">
     <a class="btn primary" href="/app">Sign in</a>
@@ -33,7 +33,7 @@
     the steps below get your own copy running in about five minutes.</p>
 
   <section class="feat" aria-label="Features">
-    <div class="card"><h2>☀️ Today screen</h2><p>Overdue, today and the next 7 days from every list in one place, each with a Done button - plus the numbers that matter, like monthly spend or birthdays this week.</p></div>
+    <div class="card"><h2>☀️ Today screen</h2><p>Overdue, today and the next 7 days from every list in one place, each with a Done button - plus the numbers that matter, like monthly spend or birthdays coming up.</p></div>
     <div class="card"><h2>✅ One tap</h2><p>Done, Tomorrow, Cancel, Completed: each list has its own buttons. Tap a badge such as <code>open</code> or <code>high</code> to change it without opening a form.</p></div>
     <div class="card"><h2>👆 Swipe &amp; select</h2><p>Swipe right for the main action, left to edit. Long-press to select many rows and close, reschedule or re-tag them together.</p></div>
     <div class="card"><h2>↩️ Undo everything</h2><p>Every change - an edit, a Done, a delete, a bulk update - shows an Undo button for a few seconds. Mis-taps cost nothing.</p></div>
@@ -42,6 +42,7 @@
     <div class="card"><h2>📄 Plain files</h2><p>No database. Each list is one human-readable file next to your notes - greppable, diffable, and safe to edit by hand or from Obsidian.</p></div>
     <div class="card"><h2>🤝 Script-friendly</h2><p>Only the record you change is rewritten. Comments, unknown fields and file order are kept, and an edit that would overwrite a script's change is refused.</p></div>
     <div class="card"><h2>📱 Installable app</h2><p>Bottom navigation, full-screen forms and shortcuts on your phone; a side panel on the desktop. Opens offline with your last data, read-only.</p></div>
+    <div class="card"><h2>🤖 Android app &amp; widgets</h2><p>The same app fully offline on Android, over the folder Syncthing keeps in sync. Thirteen home-screen widgets (today, lists, month, agenda, quick add, steps, sleep, weight…), tick tasks from the home screen, fingerprint lock, and your Samsung Health data every morning. Edits made on two devices are merged record by record.</p></div>
     <div class="card"><h2>🔒 Private by design</h2><p>Single user, hashed password, signed cookies, login lockout, strict browser policies, no third-party requests and no tracking.</p></div>
     <div class="card"><h2>🪶 Tiny</h2><p>One Go binary of about 8 MB with the web app built in. Runs in a 10 MB Docker image as your own user, with a read-only filesystem.</p></div>
     <div class="card"><h2>🌗 Light &amp; dark</h2><p>The <a href="https://gitlab.com/niharokz/nss">nss</a> teal theme follows your system, with a manual switch. Large tap targets, readable on any screen.</p></div>
@@ -54,8 +55,9 @@
       <tbody>
         <tr><td>📅 Events</td><td><code>event.md</code></td><td>Todos and reminders grouped Overdue / Today / Next 7 days / Later / Closed. Done, Tomorrow and Reopen buttons, smart quick add.</td></tr>
         <tr><td>💳 Subscriptions</td><td><code>subscription.md</code></td><td>Bills and renewals, “due in 7 days”, and true monthly spend across any cycle: monthly, yearly, “84 days”, “3 years”.</td></tr>
-        <tr><td>🎁 Birthdays</td><td><code>birthdays.md</code></td><td>Read-only, sorted by the next birthday, with the age each person turns.</td></tr>
+        <tr><td>🗓️ Calendar</td><td><code>calendar-local.md</code><br><code>calendar.md</code></td><td>Month, week and schedule views like Google Calendar. Tap a day to add; edit or delete your own entries. Entries synced from Google appear alongside, read-only, colour-coded by kind (birthday, holiday, event…).</td></tr>
         <tr><td>❤️ Health</td><td><code>health.md</code></td><td>Planned races (a Completed button asks for time and cost and moves the race to history), race history, gym routine in your own order, and a profile.</td></tr>
+        <tr><td>📖 Architecture</td><td><code>homelab.md</code></td><td>One Markdown note as a handbook: contents, numbered sections, tables, callouts and diagrams. Edit one section at a time; the file stays a normal note you can also open in Obsidian.</td></tr>
         <tr><td>📦 Inventory</td><td><code>inventory.csv</code></td><td>What you own, its condition and where it is kept, with value and weight totals by place, type or condition.</td></tr>
       </tbody>
     </table>
@@ -139,9 +141,10 @@ data_dir: /data
 plugins:            # menu order
   - events
   - subscriptions
-  - birthdays
+  - calendar
   - health
   - inventory
+  - architecture
 lists:              # shared dropdowns
   rooms: [Kitchen, Bedroom]</pre>
     </div>

@@ -74,10 +74,15 @@ type Doc interface {
 	Save() error
 }
 
-// File is a plugin's data file plus a lock that serialises Natlas's own writes.
+// File is one data file plus a lock that serialises Natlas's own writes.
 type File struct {
-	Plugin *config.Plugin
+	Path   string
+	Format string // yaml | csv | markdown
 	mu     sync.Mutex
+
+	cacheMu  sync.Mutex
+	cacheSum [sha1.Size]byte // content hash of the parsed copy below
+	cacheDoc Doc             // read-only copy for View (never saved)
 }
 
 var (
@@ -85,35 +90,89 @@ var (
 	files   = map[string]*File{}
 )
 
-// For returns the shared File for a plugin (one lock per path).
-func For(p *config.Plugin) *File {
+// For returns the shared File for a plugin's own data file (one lock per path).
+func For(p *config.Plugin) *File { return forPath(p.File, p.Format()) }
+
+// ForCollection returns the file a collection reads (its own `file:` or the plugin's).
+func ForCollection(p *config.Plugin, c *config.Collection) *File {
+	if c != nil && c.File != "" {
+		return forPath(c.File, config.FormatOf(c.File))
+	}
+	return For(p)
+}
+
+func forPath(path, format string) *File {
 	filesMu.Lock()
 	defer filesMu.Unlock()
-	if f, ok := files[p.File]; ok {
+	if f, ok := files[path]; ok {
 		return f
 	}
-	f := &File{Plugin: p}
-	files[p.File] = f
+	f := &File{Path: path, Format: format}
+	files[path] = f
 	return f
 }
 
 // Read loads the file. A missing file is an empty document (it is created on
 // the first save).
 func (f *File) Read() (Doc, error) {
-	data, err := os.ReadFile(f.Plugin.File)
+	data, err := os.ReadFile(f.Path)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("cannot read %s: %w", filepath.Base(f.Plugin.File), err)
+		return nil, fmt.Errorf("cannot read %s: %w", filepath.Base(f.Path), err)
 	}
-	if f.Plugin.Format() == "csv" {
-		return parseCSV(f.Plugin.File, data)
+	switch f.Format {
+	case "csv":
+		return parseCSV(f.Path, data)
+	case "markdown":
+		return parseMarkdown(f.Path, data)
 	}
-	return parseYAML(f.Plugin.File, data)
+	return parseYAML(f.Path, data)
 }
+
+// View is Read for callers that only look (lists, dashboard, snapshot): an
+// unchanged file is parsed once and shared. Never change or Save the result.
+func (f *File) View() (Doc, error) {
+	data, err := os.ReadFile(f.Path)
+	if err != nil {
+		return f.Read() // missing file etc.: same answer as Read
+	}
+	sum := sha1.Sum(data)
+	f.cacheMu.Lock()
+	defer f.cacheMu.Unlock()
+	if f.cacheDoc != nil && sum == f.cacheSum {
+		return f.cacheDoc, nil
+	}
+	var doc Doc
+	switch f.Format {
+	case "csv":
+		doc, err = parseCSV(f.Path, data)
+	case "markdown":
+		doc, err = parseMarkdown(f.Path, data)
+	default:
+		doc, err = parseYAML(f.Path, data)
+	}
+	if err != nil {
+		return nil, err
+	}
+	f.cacheSum, f.cacheDoc = sum, doc
+	return doc, nil
+}
+
+// LockDir, when set (NATLAS_LOCK_DIR), adds a lock file per data file there,
+// so two natlas processes on one device (the phone app and its widgets) never
+// interleave a read-change-write. Other programs are not affected.
+var LockDir string
 
 // Change loads the file, runs fn under the lock, and saves if fn succeeds.
 func (f *File) Change(fn func(Doc) error) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if LockDir != "" {
+		unlock, err := lockPath(LockDir, f.Path)
+		if err != nil {
+			return err
+		}
+		defer unlock()
+	}
 	doc, err := f.Read()
 	if err != nil {
 		return err
@@ -188,6 +247,15 @@ func find(items []*Item, id string) (*Item, error) {
 	}
 	return nil, ErrNotFound
 }
+
+// ParseFile reads any data file in the given format (yaml, csv, markdown)
+// without going through a plugin; used to read Syncthing conflict copies.
+func ParseFile(path, format string) (Doc, error) {
+	return (&File{Path: path, Format: format}).Read()
+}
+
+// WriteAtomic is writeAtomic for other packages (conflict lists, snapshots).
+func WriteAtomic(path string, data []byte) error { return writeAtomic(path, data) }
 
 // writeAtomic replaces path with data via a temp file in the same folder,
 // keeping the original file's permissions.

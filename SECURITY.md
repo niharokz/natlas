@@ -18,8 +18,8 @@ Only the latest release is supported. Update with
 ## What Natlas protects, and how
 
 See "Security notes" in `README.md`. In short: single user, PBKDF2 password
-hash, signed `__Host-` session cookie bound to the password, per-IP login
-lockout, same-origin JSON writes, strict CSP and security headers, and a
+hash, signed `__Host-` session cookie bound to the password (12 h, or until
+logout on a browser given the device key), a 7-day IP ban after 5 failed logins, same-origin JSON writes, strict CSP and security headers, and a
 non-root, read-only, capability-free container that can only write to your
 data folder.
 

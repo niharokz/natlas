@@ -1,0 +1,78 @@
+# Calendar: a month / week / schedule view, like Google Calendar.
+#
+# Two sources, merged on screen:
+#   mine    calendar-local.md - your own entries; add, edit and delete here
+#   google  calendar.md       - written in full every night by a sync job (e.g. Kronos
+#                               calendar_sync from the Google Calendar API), so it is
+#                               read-only here; change those entries in Google Calendar.
+# Natlas never writes calendar.md, so the nightly sync cannot undo your edits.
+
+title: Calendar
+icon: calendar
+description: Your entries plus the synced Google calendars, in one view
+view: calendar
+week_start: monday
+file: calendar-local.md
+
+collections:
+  - id: mine
+    label: My calendar
+    path: events
+    id_from: title
+    fields:
+      - { key: title, type: text, required: true, placeholder: "Add title" }
+      - { key: date, type: date, required: true, default: today }
+      - { key: time, type: time, help: "Leave empty for an all-day entry" }
+      - { key: end, label: Until, type: date, help: "Last day, for entries that span several days" }
+      - { key: category, type: select, default: event, required: true,
+          options: [event, birthday, anniversary, reminder, reservation, holiday, out_of_office] }
+      - { key: location, type: text }
+      - { key: note, type: textarea }
+    list:
+      title: title
+      subtitle: [date, time, location]
+      badges: [category]
+      search: [title, location, note]
+      sort: [date, time, title]
+    quick_add:
+      title: title
+      date: date
+      time: time
+      hint: "Dinner with Riya fri 8pm"
+    agenda:
+      - { section: today, date: date, where: { any: [ { date: today }, { date: { lt: today }, end: { gte: today } } ] } }
+      - { section: upcoming, date: date, where: { date: { gt: today, lte: today+7 } } }
+    widgets:
+      - { label: My upcoming, count: { date: { gte: today } } }
+
+  - id: google
+    label: Google
+    file: calendar.md
+    path: events
+    readonly: true
+    note: "Synced from Google Calendar · last sync {last_sync}"
+    link: { label: Open in Google Calendar, url: "https://calendar.google.com/calendar/r/search?q={title}" }
+    fields:
+      - { key: title, type: text }
+      - { key: date, type: date }
+      - { key: time, type: time }
+      - { key: end, label: Until, type: date }
+      - { key: category, type: select,
+          options: [event, birthday, anniversary, holiday, festival, reservation, out_of_office, focus_time, working_location] }
+      - { key: calendar, type: text }
+      - { key: location, type: text }
+    list:
+      title: title
+      subtitle: [date, time, calendar]
+      badges: [category]
+      search: [title, calendar, location]
+      sort: [date, time, title]
+    agenda:
+      - { section: today, date: date,
+          where: { category: { ne: working_location },
+                   any: [ { date: today }, { date: { lt: today }, end: { gte: today } } ] } }
+      - { section: upcoming, date: date,
+          where: { date: { gt: today, lte: today+7 }, category: { nin: [festival, focus_time, working_location] } } }
+    widgets:
+      - { label: Today, count: { date: today }, tone: warn }
+      - { label: Birthdays (30 d), count: { category: [birthday, anniversary], date: { gte: today, lte: today+30 } } }

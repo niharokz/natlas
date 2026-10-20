@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One row of a list widget: tick box (or a category dot), title, small text, badge. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/row" android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:minHeight="44dp" android:gravity="center_vertical" android:orientation="horizontal"
+    android:paddingEnd="6dp" android:background="@drawable/row_ripple">
+    <CheckBox android:id="@+id/check" android:layout_width="40dp" android:layout_height="40dp" android:visibility="gone"
+        android:contentDescription="Done" />
+    <ImageView android:id="@+id/dot" android:layout_width="10dp" android:layout_height="10dp" android:layout_marginStart="4dp"
+        android:layout_marginEnd="12dp" android:src="@drawable/widget_dot" android:importantForAccessibility="no" android:visibility="gone" />
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+        android:orientation="vertical" android:paddingTop="5dp" android:paddingBottom="5dp">
+        <TextView android:id="@+id/row_title" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textSize="14sp" android:maxLines="1" android:ellipsize="end" />
+        <TextView android:id="@+id/row_sub" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
+    </LinearLayout>
+    <TextView android:id="@+id/row_badge" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginStart="6dp" android:paddingStart="8dp" android:paddingEnd="8dp" android:paddingTop="2dp" android:paddingBottom="2dp"
+        android:background="@drawable/widget_pill" android:textSize="10sp" android:textStyle="bold" android:fontFamily="monospace" android:visibility="gone" />
+</LinearLayout>

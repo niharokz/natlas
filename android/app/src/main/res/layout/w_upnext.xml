@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Up next (2×2 and bigger): a countdown to the next entry. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root" android:layout_width="match_parent" android:layout_height="match_parent">
+    <ImageView android:id="@+id/bg" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:src="@drawable/widget_shape" android:scaleType="fitXY" android:importantForAccessibility="no" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical"
+        android:gravity="center_vertical" android:padding="16dp">
+        <TextView android:id="@+id/label" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textSize="10sp" android:textStyle="bold" android:fontFamily="monospace" android:letterSpacing="0.12" android:textAllCaps="true" android:text="Up next" />
+        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="bottom">
+            <TextView android:id="@+id/big" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textSize="40sp" android:textStyle="bold" android:includeFontPadding="false" android:maxLines="1" />
+            <TextView android:id="@+id/unit" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginStart="6dp" android:layout_marginBottom="6dp" android:textSize="14sp" />
+        </LinearLayout>
+        <TextView android:id="@+id/title" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="4dp" android:textSize="15sp" android:textStyle="bold" android:maxLines="2" android:ellipsize="end" />
+        <TextView android:id="@+id/sub" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textSize="12sp" android:maxLines="1" android:ellipsize="end" />
+    </LinearLayout>
+</FrameLayout>

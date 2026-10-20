@@ -1,0 +1,42 @@
+# Architecture: one Markdown note shown as a handbook - contents on the side,
+# numbered sections, tables, callouts and diagrams.
+#
+# The note stays an ordinary Markdown file (edit it in Obsidian too):
+#   front matter (title, subtitle, reviewed) + an intro   -> "about" (edit with the pencil at the top)
+#   every "## Heading" and the text under it               -> one section (pencil on each section)
+# Saving a section rewrites only that section, so edits made elsewhere in the
+# file at the same time are kept. Rendering: GitHub-style Markdown, Obsidian
+# callouts (> [!warning] Title) and ```mermaid diagrams.
+
+title: Architecture
+icon: book
+description: How the homelab is built and run, as one Markdown note
+view: document
+format: markdown
+file: homelab.md
+
+collections:
+  - id: sections
+    label: Sections
+    path: sections
+    order: manual
+    fields:
+      - { key: title, type: text, required: true, placeholder: "Section title" }
+      - { key: body, type: markdown,
+          placeholder: "Markdown: | tables |, ```mermaid diagrams, > [!warning] callouts, ### sub-headings",
+          help: "A line starting with \"## \" starts a new section when the note is read again" }
+    list:
+      title: title
+      search: [title, body]
+    widgets:
+      - { label: Sections, count: {} }
+
+  - id: about
+    label: Title & intro
+    path: front
+    kind: record
+    fields:
+      - { key: title, type: text }
+      - { key: subtitle, type: text }
+      - { key: reviewed, label: Last reviewed, type: date, default: today }
+      - { key: intro, type: markdown }

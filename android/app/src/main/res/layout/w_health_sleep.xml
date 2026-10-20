@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sleep (2×2, 4×2): last night with its stages; the week's nights when wide. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root" android:layout_width="match_parent" android:layout_height="match_parent">
+    <ImageView android:id="@+id/bg" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:src="@drawable/widget_shape" android:scaleType="fitXY" android:importantForAccessibility="no" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:padding="14dp">
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center_vertical">
+            <TextView android:id="@+id/title" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
+            <TextView android:id="@+id/value" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="26sp" android:textStyle="bold" android:maxLines="1" android:includeFontPadding="false" android:layout_marginTop="2dp" />
+            <TextView android:id="@+id/times" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="12sp" android:maxLines="1" />
+            <ImageView android:id="@+id/stages" android:layout_width="match_parent" android:layout_height="8dp" android:layout_marginTop="8dp" android:scaleType="fitXY" android:importantForAccessibility="no" />
+            <TextView android:id="@+id/legend" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:maxLines="1" android:ellipsize="end" android:layout_marginTop="4dp" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/chart_holder" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="12dp">
+        <FrameLayout android:id="@+id/chart_box" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginTop="6dp">
+            <ImageView android:id="@+id/chart_grid" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="fitCenter" android:importantForAccessibility="no" />
+            <ImageView android:id="@+id/chart_marks" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="fitCenter" android:importantForAccessibility="no" />
+            <ImageView android:id="@+id/chart_good" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="fitCenter" android:importantForAccessibility="no" />
+        </FrameLayout>
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

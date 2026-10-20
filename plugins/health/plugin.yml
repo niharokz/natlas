@@ -1,4 +1,4 @@
-# Health: race plan, race history, gym routine and profile.
+# Health: daily data from the phone, race plan, race history, gym routine and profile.
 #
 # health.md can also feed a static health page generator (e.g. a Taskmaster
 # job), so keep the field names below stable if you use one.
@@ -6,10 +6,110 @@
 
 title: Health
 icon: heart
-description: Runs, race history, gym routine
+description: Daily health data, runs, race history, gym routine
 file: health.md
 
 collections:
+  # Filled every morning by the Natlas phone app from Health Connect (Samsung Health
+  # shares into it). One record per day; sleep belongs to the day you woke up.
+  - id: daily
+    label: Daily
+    path: daily
+    readonly: true
+    id_from: date
+    note: "Filled every morning by the Natlas phone app from Health Connect."
+    fields:
+      - { key: date, type: date }
+      - { key: steps, type: number }
+      - { key: km, label: Distance, type: number, unit: km }
+      - { key: floors, type: number }
+      - { key: elev_m, label: Elevation, type: number, unit: m }
+      - { key: kcal_active, label: Active kcal, type: number, unit: kcal }
+      - { key: kcal_total, label: Total kcal, type: number, unit: kcal }
+      - { key: active_min, label: Exercise, type: number, unit: min }
+      - { key: workouts, type: number }
+      - { key: exercise, type: text }
+      - { key: sleep_h, label: Sleep, type: number, unit: h }
+      - { key: sleep_start, label: Bedtime, type: time }
+      - { key: sleep_end, label: Woke up, type: time }
+      - { key: deep_h, label: Deep, type: number, unit: h }
+      - { key: rem_h, label: REM, type: number, unit: h }
+      - { key: light_h, label: Light, type: number, unit: h }
+      - { key: awake_h, label: Awake, type: number, unit: h }
+      - { key: naps_h, label: Naps, type: number, unit: h }
+      - { key: hr_rest, label: Resting HR, type: number, unit: bpm }
+      - { key: hr_min, label: Min HR, type: number, unit: bpm }
+      - { key: hr_avg, label: Avg HR, type: number, unit: bpm }
+      - { key: hr_max, label: Max HR, type: number, unit: bpm }
+      - { key: hrv, label: HRV, type: number, unit: ms }
+      - { key: spo2, label: SpO2, type: number, unit: "%" }
+      - { key: resp_rate, label: Breathing, type: number, unit: /min }
+      - { key: weight, type: number, unit: kg }
+      - { key: body_fat, label: Body fat, type: number, unit: "%" }
+      - { key: height, type: number, unit: cm }
+      - { key: bp_sys, label: BP systolic, type: number, unit: mmHg }
+      - { key: bp_dia, label: BP diastolic, type: number, unit: mmHg }
+      - { key: glucose, label: Glucose, type: number, unit: mmol/L }
+      - { key: water_l, label: Water, type: number, unit: L }
+      - { key: kcal_eaten, label: Food kcal, type: number, unit: kcal }
+      - { key: protein_g, label: Protein, type: number, unit: g }
+      - { key: carbs_g, label: Carbs, type: number, unit: g }
+      - { key: fat_g, label: Fat, type: number, unit: g }
+      - { key: sources, type: text }
+    list:
+      title: date
+      subtitle: [steps, sleep_h, kcal_active, exercise]
+      sort: [-date]
+    sync:
+      source: health_connect
+      key: date
+      latest:   # after every sync the newest values go to the profile below
+        collection: profile
+        set:
+          weight: "{weight}kg"
+          body_fat: "{body_fat}"
+          height: "{height}cm"
+          last_updated: "{today|02 Jan 2006}"
+    charts:
+      date: date
+      goals: profile          # goal_steps, goal_sleep_h… on the profile override the goals here
+      rings:
+        - { field: steps, goal: 8000 }
+        - { field: sleep_h, goal: 7.5, decimals: 1 }
+        - { field: active_min, goal: 30 }
+      tiles:
+        - { field: km, decimals: 1 }
+        - kcal_active
+        - { field: hr_rest, lower: true }
+        - { field: hrv }
+        - { field: spo2 }
+        - { field: weight, decimals: 1, lower: true }
+        - floors
+        - { field: water_l, decimals: 1 }
+      trends:
+        - { field: steps, goal: 8000, total: true }
+        - { field: km, decimals: 1, total: true }
+        - { field: kcal_active, total: true }
+        - { field: active_min, goal: 30, total: true }
+        - { field: sleep_h, goal: 7.5, decimals: 1 }
+        - { field: hr_rest, chart: line, lower: true }
+        - { field: hrv, chart: line }
+        - { field: spo2, chart: line }
+        - { field: floors, total: true }
+        - { field: kcal_eaten, total: true }
+        - { field: water_l, decimals: 1, total: true }
+      sleep:
+        hours: sleep_h
+        start: sleep_start
+        end: sleep_end
+        goal: 7.5
+        stages: [deep_h, rem_h, light_h, awake_h]
+      body:
+        - { field: weight, chart: line, decimals: 1, lower: true }
+        - { field: body_fat, chart: line, decimals: 1, lower: true }
+        - { field: bp_sys, chart: line, lower: true }
+        - { field: glucose, chart: line, decimals: 1, lower: true }
+
   - id: planned
     label: Planned
     path: runs.planned
@@ -93,3 +193,6 @@ collections:
       - { key: weight, type: text, placeholder: "67kg" }
       - { key: height, type: text, placeholder: "167cm" }
       - { key: body_fat, label: Body fat %, type: text }
+      - { key: goal_steps, label: Steps goal, type: number }
+      - { key: goal_sleep_h, label: Sleep goal (h), type: number }
+      - { key: goal_active_min, label: Exercise goal (min), type: number }

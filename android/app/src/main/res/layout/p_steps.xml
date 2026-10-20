@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget picker preview: Steps (sample data). -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+    <ImageView android:layout_width="match_parent" android:layout_height="match_parent"
+        android:src="@drawable/widget_shape" android:scaleType="fitXY" android:importantForAccessibility="no" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="9,840" android:textSize="24sp" android:textStyle="bold" android:textColor="@color/w_text" android:maxLines="1" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="steps" android:textSize="11sp" android:textColor="@color/w_muted" android:maxLines="1" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="✓ goal 8,000" android:textSize="11sp" android:textColor="@color/accent" android:maxLines="1" android:layout_marginTop="4dp"/>
+    </LinearLayout>
+</FrameLayout>

@@ -4,6 +4,9 @@ natlas.yml
 HOMELAB.md
 .git
 data
-examples
 scripts
+patch
+android
 *.md
+# sample data and plugins are built into the binary (phone app demo, built-in plugins)
+!examples/data/*.md

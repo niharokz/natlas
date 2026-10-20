@@ -1,0 +1,6 @@
+# The builder image needs no files from here; never upload caches or builds.
+.cache/
+dist/
+app/build/
+app/src/main/jniLibs/
+.gradle/

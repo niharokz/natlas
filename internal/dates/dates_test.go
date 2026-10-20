@@ -62,3 +62,17 @@ func TestResolve(t *testing.T) {
 		t.Error("only today±N tokens")
 	}
 }
+
+func TestClock(t *testing.T) {
+	ok := map[string]string{"20:30": "20:30", "8pm": "20:00", "8 PM": "20:00", "8:05am": "08:05", "12am": "00:00", "12pm": "12:00", "6.30pm": "18:30", "0:00": "00:00"}
+	for in, want := range ok {
+		if got, good := Clock(in); !good || got != want {
+			t.Errorf("Clock(%q) = %q %v, want %q", in, got, good, want)
+		}
+	}
+	for _, in := range []string{"8", "24:00", "13pm", "12.10", "9:60", "x", ""} {
+		if got, good := Clock(in); good {
+			t.Errorf("Clock(%q) = %q, want no time", in, got)
+		}
+	}
+}

@@ -55,16 +55,21 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 
 	for _, p := range s.App.Loaded {
 		st := statsOut{Plugin: p.ID, Title: p.Title, Icon: p.Icon, Widgets: []widgetOut{}}
-		doc, err := store.For(p).Read()
-		if err != nil {
-			st.Error = err.Error()
-			stats = append(stats, st)
-			continue
-		}
+		docs := map[string]store.Doc{} // one read per file
+		seen := map[string]bool{}      // plugin + title + date already on the agenda
 		for _, c := range p.Collections {
+			doc, ok := docs[p.FileOf(c)]
+			if !ok {
+				var err error
+				if doc, err = store.ForCollection(p, c).View(); err != nil {
+					st.Error = publicMessage(err)
+					break
+				}
+				docs[p.FileOf(c)] = doc
+			}
 			items, err := doc.Items(c)
 			if err != nil {
-				st.Error = err.Error()
+				st.Error = publicMessage(err)
 				break
 			}
 			recs := make([]map[string]any, len(items))
@@ -79,7 +84,12 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 					placed[id] = true
-					agenda[rule.Section] = append(agenda[rule.Section], agendaEntry(p, c, rule, rec))
+					e := agendaEntry(p, c, rule, rec)
+					// a synced (read-only) entry already listed from another calendar shows once
+					if same := p.ID + "\x00" + e.Title + "\x00" + e.Date; !c.ReadOnly || !seen[same] {
+						seen[same] = true
+						agenda[rule.Section] = append(agenda[rule.Section], e)
+					}
 				}
 			}
 			for _, wd := range c.Widgets {

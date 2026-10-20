@@ -19,6 +19,7 @@ import (
 //	"Renew passport 12 oct"           -> date 12 Oct (next year if already past)
 //	"Pay rent mon"                    -> next Monday
 //	"Return parcel +3"                -> in 3 days
+//	"Dinner fri 8pm"                  -> next Friday, time 20:00 (with a `time:` role)
 //
 // Anything not recognised stays in the title.
 func (s *Server) quickAdd(w http.ResponseWriter, r *http.Request) {
@@ -107,6 +108,16 @@ func parseQuick(c *config.Collection, text string, today time.Time) map[string]a
 				continue
 			}
 		}
+		if q.Time != "" && out[q.Time] == nil {
+			if t, used := clockWords(words[i:]); used > 0 {
+				out[q.Time] = t
+				if len(title) > 0 && strings.EqualFold(title[len(title)-1], "at") {
+					title = title[:len(title)-1] // "at 8pm"
+				}
+				i += used - 1
+				continue
+			}
+		}
 		if q.Date != "" && date == nil {
 			if t, used := parseDateWords(words[i:], today); used > 0 {
 				date = &t
@@ -121,6 +132,21 @@ func parseQuick(c *config.Collection, text string, today time.Time) map[string]a
 		out[q.Date] = dates.Format(*date, "")
 	}
 	return out
+}
+
+// clockWords reads "8pm", "20:30" or "8 pm" from the start of words.
+func clockWords(words []string) (string, int) {
+	if len(words) > 1 {
+		if l := strings.ToLower(words[1]); l == "am" || l == "pm" {
+			if t, ok := dates.Clock(words[0] + l); ok {
+				return t, 2
+			}
+		}
+	}
+	if t, ok := dates.Clock(words[0]); ok {
+		return t, 1
+	}
+	return "", 0
 }
 
 // matchOption finds the option a short form refers to: "h" / "hi" -> "high".

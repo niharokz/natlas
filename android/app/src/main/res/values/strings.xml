@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Natlas</string>
+    <string name="w_today">Natlas · Today</string>
+    <string name="w_today_desc">Overdue, today and the next 7 days. Tick to mark done.</string>
+    <string name="w_list">Natlas · List</string>
+    <string name="w_list_desc">Any list (events, subscriptions, races…) with a tick for its main action.</string>
+    <string name="w_agenda">Natlas · Agenda</string>
+    <string name="w_agenda_desc">Your calendar, day by day. At 4×1: just the next entry.</string>
+    <string name="w_month">Natlas · Month</string>
+    <string name="w_month_desc">A month calendar with coloured dots. Tap a day to open it.</string>
+    <string name="w_upnext">Natlas · Up next</string>
+    <string name="w_upnext_desc">A countdown to your next entry.</string>
+    <string name="w_quick">Natlas · Quick add</string>
+    <string name="w_quick_desc">One tap, one line: "Dinner fri 8pm".</string>
+    <string name="w_number">Natlas · Number</string>
+    <string name="w_number_desc">One figure: pending, due today, monthly spend…</string>
+    <string name="w_glance">Natlas · Glance</string>
+    <string name="w_glance_desc">Up to four numbers of one list.</string>
+    <string name="w_clock">Natlas · Clock</string>
+    <string name="w_clock_desc">Time, date and the next three things.</string>
+    <string name="sc_quick">Quick add</string>
+    <string name="sc_today">Today</string>
+    <string name="sc_calendar">Calendar</string>
+    <string name="w_steps">Steps</string>
+    <string name="w_steps_desc">Your daily steps against your goal, as a ring</string>
+    <string name="w_sleep">Sleep</string>
+    <string name="w_sleep_desc">Last night\'s sleep and stages; the week when wide</string>
+    <string name="w_week">Steps week</string>
+    <string name="w_week_desc">Steps for the last 7 days with your goal</string>
+    <string name="w_weight">Weight</string>
+    <string name="w_weight_desc">Your weight and its trend over 30 days</string>
+</resources>
