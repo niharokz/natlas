@@ -85,15 +85,18 @@ func Handler(dir string, app *config.App, release string, demo Demo) (http.Handl
 	return mux, nil
 }
 
-// Demo is the read-only demo login shown on the landing page (empty = none).
+// Demo is the read-only demo login shown on the sign-in screen (empty = none).
 type Demo struct{ User, Password string }
 
+// html is the sign-in hint; tapping it fills the form.
 func (d Demo) html() string {
 	if d.User == "" {
-		return `<p class="muted">This is a private instance. Run your own copy in a few minutes (below).</p>`
+		return ""
 	}
-	return `<p class="demo">Try it: sign in as <code>` + html.EscapeString(d.User) + `</code> / <code>` +
-		html.EscapeString(d.Password) + `</code> - sample data, read-only.</p>`
+	u, p := html.EscapeString(d.User), html.EscapeString(d.Password)
+	return `<button type="button" class="login-demo" data-u="` + u + `" data-p="` + p +
+		`" @click="loginForm.username = $el.dataset.u; loginForm.password = $el.dataset.p">` +
+		`<span>Try the demo: <code>` + u + `</code> / <code>` + p + `</code></span><small>sample data, read-only · tap to fill in</small></button>`
 }
 
 // hashFS fingerprints every file so a new release changes the version.

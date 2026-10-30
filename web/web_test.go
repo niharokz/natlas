@@ -19,11 +19,12 @@ func TestRoutes(t *testing.T) {
 		return w.Code, w.Body.String()
 	}
 	if code, body := get("/"); code != 200 || !strings.Contains(body, `href="/app"`) || !strings.Contains(body, "natlas 1.0.0") ||
-		!strings.Contains(body, "<code>d&lt;e&gt;mo</code>") || !strings.Contains(body, "/natlas.apk") {
-		t.Fatalf("landing: %d (demo login and APK link expected)", code)
+		strings.Contains(body, "d&lt;e&gt;mo") || !strings.Contains(body, "/natlas.apk") {
+		t.Fatalf("landing: %d (APK link expected, no demo login)", code)
 	}
-	if code, body := get("/app"); code != 200 || !strings.Contains(body, `x-data="natlas"`) || !strings.Contains(body, "Natlas &lt;x&gt;") {
-		t.Fatalf("app page: %d (title must be escaped)", code)
+	if code, body := get("/app"); code != 200 || !strings.Contains(body, `x-data="natlas"`) || !strings.Contains(body, "Natlas &lt;x&gt;") ||
+		!strings.Contains(body, `data-p="d&lt;e&gt;mo"`) {
+		t.Fatalf("app page: %d (title escaped, demo login on the sign-in form)", code)
 	}
 	if code, _ := get("/app/"); code != 301 {
 		t.Fatalf("/app/ should redirect, got %d", code)

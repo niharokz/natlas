@@ -134,12 +134,12 @@ Undo works entirely on the client, using what the server returns:
 
 ## 6. Frontend (`web/`)
 
-- **Pages.** `/` is a short static about page (features, lists, three install steps, the demo login via `{{DEMO}}`, the latest-APK link) with a Sign in button, styled with the nss tokens in `landing.css`. The app lives at `/app`; its login screen links back to `/`.
+- **Pages.** `/` is a short static about page (features, lists, three install steps, the latest-APK link) with a Sign in button, styled with the nss tokens in `landing.css`. The app lives at `/app`; its login screen links back to `/`.
 - **Structure.** One Alpine component, `natlas`, in `app.js`, and one `index.html`. Load order: `app.js` (defer), then `alpine.min.js` (defer). The component registers on `alpine:init`.
 - **Routing.**
   - Screens use the hash: `#/today`, `#/p/{plugin}/{collection}`, `#/customize`.
 - **Layout.** `loadApp` fetches `/api/layout`; `menuPlugins()` orders the rail, bottom bar and More sheet. The Today screen loops over `layout.home`: `agendaSections(b)`, `glanceStats(b)`, `blockRows(b)` (list blocks load their collection on `loadToday`), `md(b.text)`. `#/customize` edits a copy (`cz`) and saves it with one PUT.
-- **Demo.** `/api/me` and the login reply carry `demo`; the app then marks every collection read-only (no FAB, quick add, Save, actions), hides agenda buttons and shows a banner. The server refuses writes anyway.
+- **Demo.** The sign-in form shows the demo login (`{{DEMO}}` in `index.html`, filled by `web.Handler`; a tap fills the form). `/api/me` and the login reply carry `demo`; the app then marks every collection read-only (no FAB, quick add, Save, actions), hides agenda buttons and shows a banner. The server refuses writes anyway.
   - The edit sheet is a `<dialog>`. Opening it pushes a history entry, so the phone's Back button closes it.
 - **Rendering.** Everything comes from the plugin definition: `list.title`, `subtitle`, `badges`, `search`, `filters`; `actions` with `primary`; `quick_add`; `summary`; `link` (a button in the sheet).
 - **Calendar view** (`view: calendar`, the `calendar` section of `app.js`):
@@ -230,6 +230,8 @@ WidgetRouter (invisible activity) ── tick → action → Undo bar 6 s → pa
 - **Android shell** (no AndroidX, minSdk 31): `Engine` starts `libnatlas.so` from `nativeLibraryDir` (`useLegacyPackaging`) with a fixed port saved in prefs and `TZ` from the phone; `Lock` uses `BiometricPrompt` (`BIOMETRIC_WEAK | DEVICE_CREDENTIAL`) or a PBKDF2 PIN (`Pin`); widgets use `RemoteViews` size maps (2×1 … 5×5), `RemoteCollectionItems` for lists, `setOnCheckedChangeResponse` for ticks and day/night colour pairs.
 
 ## Changelog
+
+- **1.0.2 (2026-10-30).** Demo login moved to the sign-in form; `scripts/release.sh`.
 
 - **1.0.1 (2026-10-30).** `plugins/bookmarks` + `plugins/locations` (`id_field: none`, `link: {url: "{url}"}`, `quick_add.url`, list-field tag options/filters); yaml `restyle` (compact lists, padded flow rows); `/api/layout` + `#/customize` + Today blocks; demo login (`x` sessions, demo mux, `ReadOnly`); landing page `{{DEMO}}`; `.gitlab-ci.yml` (test, apk on the `natlas-apk` runner, release via glab image) and `.gitlab/` templates; Docker version from `VERSION`; Android list order moved to `layout.yml` (`Prefs.order` removed).
 

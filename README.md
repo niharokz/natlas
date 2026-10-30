@@ -131,7 +131,7 @@ The app runs this same engine on the phone in **phone mode** (`NATLAS_MODE=local
 | `NATLAS_DEVICE_KEY` | Optional, 32+ characters (`openssl rand -hex 32`). A browser given this key (app → **This device**) stays signed in until you log out; others are signed out after `NATLAS_SESSION_HOURS`. A new key signs every remembered browser out. |
 | `NATLAS_SESSION_HOURS` | Life of a login without the device key. Default `12`. |
 | `NATLAS_MAX_FAILURES`, `NATLAS_BAN_DAYS` | Failed logins (or device keys) within a day before a public IP is banned, and for how many days. Default `5` and `7`. Home addresses only get a 30-minute lockout. |
-| `NATLAS_DEMO_USERNAME`, `NATLAS_DEMO_PASSWORD` | Optional read-only demo login, shown on the start page. It sees a fresh copy of the built-in sample data (`<config>/demo`), never your files, and every change is refused. |
+| `NATLAS_DEMO_USERNAME`, `NATLAS_DEMO_PASSWORD` | Optional read-only demo login, shown on the sign-in screen (tap to fill in). It sees a fresh copy of the built-in sample data (`<config>/demo`), never your files, and every change is refused. |
 | `NATLAS_TRUST_PROXY` | Default `true`: behind a proxy, reads the visitor IP (for the lockout and logs) from `CF-Connecting-IP`, `X-Real-IP`, or the **last** `X-Forwarded-For` entry. Set `false` if nothing sits in front of Natlas. |
 
 ### `natlas.yml` (app settings, no secrets)
@@ -287,7 +287,7 @@ web/               landing page (/), the app (/app: index.html, app.js, natlas.c
 plugins/           one folder per plugin, each holding a plugin.yml
 examples/data/     sample data for trying it out (also built into the binary)
 android/           the Android app: Kotlin shell, widgets, Docker build (android/build.sh)
-scripts/           dev.sh (local run), check-public.sh (pre-push secret check)
+scripts/           dev.sh (local run), check-public.sh (pre-push secret check), release.sh (tag a release)
 .gitlab-ci.yml     tests on every push; a version tag builds the APK and the release
 .gitlab/           issue and merge request templates
 ```
@@ -296,11 +296,13 @@ Run the tests with `go test ./...` (the `vendor/` folder is used automatically; 
 
 ## Releases and the Android APK
 
-A release is a tag. Bump `VERSION`, add a `## X.Y.Z - date` section to `CHANGELOG.md`, then:
+A release is a tag. One command does it all (write the changelog section first for proper notes; otherwise the message becomes the note):
 
 ```sh
-git commit -am "Natlas X.Y.Z" && git tag vX.Y.Z && git push && git push --tags
+sh scripts/release.sh "v1.0.2 demo login on the sign-in screen"
 ```
+
+It sets `VERSION`, adds a `## X.Y.Z - date` changelog section if there is none, runs the tests (when Go is installed) and `check-public.sh`, commits everything, tags and pushes `main` and the tag. It refuses an existing tag, a branch other than `main`, or a `main` behind the remote.
 
 GitLab CI ([.gitlab-ci.yml](.gitlab-ci.yml)) then tests, builds the signed APK on **your own runner** (so it uses none of the free tier's 400 CI minutes, and the signing key never leaves your server), uploads it to the project's package registry and creates the release with that version's changelog. The newest APK is always at `/-/releases/permalink/latest/downloads/natlas.apk`. A tag that does not match `VERSION`, or a version without a changelog section, fails the pipeline.
 

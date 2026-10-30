@@ -62,4 +62,3 @@ body>.about{max-width:62rem;padding:1.25rem 1rem 4rem}
    their block instead of widening the page */
 .steps>li,.feat>*{min-width:0}
 .about pre{max-width:100%}
-.demo{display:inline-block;margin:.2rem 0 0;padding:.5rem .8rem;border-radius:10px;font-size:.92rem;background:color-mix(in srgb,var(--nss-accent) 12%,var(--nss-surface));border:1px solid color-mix(in srgb,var(--nss-accent) 35%,transparent)}

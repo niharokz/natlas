@@ -2,6 +2,11 @@
 
 Version numbers restarted at **1.0.0** on 2026-10-20. Earlier releases are listed as 0.x: the Python version is 0.1, and the Go releases first published as 2.0.0 – 3.1.1 are 0.2.0 – 0.6.1.
 
+## 1.0.2 - 2026-10-30
+
+- **Demo login on the sign-in screen** (tap it to fill in the form) instead of the start page.
+- **`scripts/release.sh "vX.Y.Z what changed"`** makes a release in one step: sets `VERSION`, adds a changelog section if missing, runs the tests and the public-repo check, commits everything, tags and pushes. GitLab then builds the APK and the release.
+
 ## 1.0.1 - 2026-10-30
 
 - **Bookmarks and Locations.** Two new lists over `bookmark.md` and `location.md`, the files your launcher keeps. Bookmarks: tags with a filter, an open button on every row, and quick add from a pasted link (`https://… Name #tag #tag`). Locations: type, coordinates, radius, address and map link, opened in Google Maps. Natlas writes no `id:` into these files and keeps their one-line rows (`id_field: none`).
