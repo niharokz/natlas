@@ -1,5 +1,9 @@
 # Natlas
 
+[![pipeline](https://gitlab.com/niharokz/natlas/badges/main/pipeline.svg)](https://gitlab.com/niharokz/natlas/-/pipelines)
+[![release](https://gitlab.com/niharokz/natlas/-/badges/release.svg)](https://gitlab.com/niharokz/natlas/-/releases)
+[![Android APK](https://img.shields.io/badge/Android-APK-3a807a)](https://gitlab.com/niharokz/natlas/-/releases/permalink/latest/downloads/natlas.apk)
+
 **A small, self-hosted app for your personal lists, backed by plain YAML and CSV files.**
 
 Natlas gives you a fast, phone-friendly web app over files you already keep, for example in an Obsidian vault. There is no database. Each tab reads and writes one human-readable file, so your data stays greppable, diffable, and editable by hand or by your own scripts.
@@ -9,8 +13,7 @@ Every tab is a plugin, and a plugin is **one YAML file**: fields, dropdowns, lis
 - **Single Go binary.** About 8 MB, starts instantly, uses about 10 MB of RAM. One dependency (YAML), vendored.
 - **Installable app (PWA).** Bottom navigation on phones, swipe gestures, offline read-only mode.
 - **Plays well with other writers.** It edits only the record you changed, keeps comments and unknown fields, never re-sorts your file, and refuses to overwrite a record that changed underneath you.
-- **Android app with widgets.** The same app offline on your phone, over the folder Syncthing keeps in sync, with 9 home-screen widgets and fingerprint lock. See [android/README.md](android/README.md).
-- **No build step for the UI.** Alpine.js and the [nss](https://gitlab.com/niharokz/nss) stylesheet are vendored. Light and dark themes follow your system.
+- **Android app with widgets.** The same app offline on your phone, over the folder Syncthing keeps in sync, with 13 home-screen widgets, fingerprint lock and Samsung Health sync. [Download the APK](https://gitlab.com/niharokz/natlas/-/releases/permalink/latest/downloads/natlas.apk) or see [android/README.md](android/README.md). - **No build step for the UI.** Alpine.js and the [nss](https://gitlab.com/niharokz/nss) stylesheet are vendored. Light and dark themes follow your system.
 
 ---
 
@@ -19,6 +22,7 @@ Every tab is a plugin, and a plugin is **one YAML file**: fields, dropdowns, lis
 | | |
 |---|---|
 | **Today screen** | Overdue, today and next 7 days from every plugin in one list, with a Done button on each item, plus a row of numbers per plugin. |
+| **Customize** | Menu order, hidden lists, and the Today screen's blocks (agenda, numbers, a few rows of any list, your own note), in the web app and on Android. Kept in `layout.yml`. |
 | **One-tap actions** | Buttons such as Done, Tomorrow, Cancel or Completed, defined per plugin. |
 | **Change in place** | Tap a badge (`open`, `high`, `Good`…) to pick a new value without opening the form. |
 | **Swipe** | Swipe right runs the main action; swipe left opens the form. |
@@ -42,8 +46,12 @@ Every tab is a plugin, and a plugin is **one YAML file**: fields, dropdowns, lis
 | **Health** | `health.md` | **Daily** health data from the phone (steps, sleep and its stages, heart rate, HRV, SpO2, weight, body fat, workouts, water, food…) filled every morning by the Android app from Health Connect / Samsung Health, shown as Today rings and tiles, Trends (7 days to all time, weekly and monthly averages), a Sleep timeline and Body charts. Plus planned races (with a "Completed" action that asks for time and cost and moves the race to history), race history, gym routine (manual order), and a profile record kept up to date with your latest weight. |
 | **Architecture** | `homelab.md` | One Markdown note shown as a handbook: numbered sections with a contents sidebar, tables, callouts (`> [!warning]`) and Mermaid diagrams. Edit a section (with preview), add, move or delete sections; the note stays a normal Markdown file you can also edit in Obsidian, and saving one section never overwrites the others. |
 | **Inventory** | `inventory.csv` | Belongings, condition and storage, with value and weight totals. |
+| **Bookmarks** | `bookmark.md` | Links with tags and a filter per tag; paste a link in quick add (`https://… Name #tag`). Each row opens its link. |
+| **Locations** | `location.md` | Saved places (type, coordinates, radius, address, map link), each opened in Google Maps. |
 
-Turn plugins on and off, and choose their menu order, in `natlas.yml`.
+Bookmarks and Locations are files another app (a launcher) also keeps, so Natlas writes no ids into them and keeps their one-line rows and layout (`id_field: none`).
+
+Turn plugins on and off in `natlas.yml`; their menu order is set in the app under **Customize**.
 
 ---
 
@@ -62,7 +70,7 @@ This runs against a temporary copy of `examples/data/`, so nothing you click is 
 ```bash
 git clone https://gitlab.com/niharokz/natlas.git && cd natlas
 cp .env.example .env              # login, secret key, data folder, timezone
-cp natlas.example.yml natlas.yml  # app title, currency, enabled plugins
+mkdir -p config && cp natlas.example.yml config/natlas.yml   # app title, currency, enabled plugins
 docker compose build
 
 # password hash -> NATLAS_PASSWORD_HASH in .env (typed password stays out of shell history)
@@ -90,6 +98,8 @@ Updating later: `git pull && docker compose up -d --build`. After editing a `plu
 Commands built into the binary: `natlas check`, `natlas hash-password`, `natlas health` (used by the Docker health check, which calls the unauthenticated `GET /healthz`) and `natlas version`.
 
 ### Android app
+
+**[Download the latest APK](https://gitlab.com/niharokz/natlas/-/releases/permalink/latest/downloads/natlas.apk)** (every release is on the [Releases](https://gitlab.com/niharokz/natlas/-/releases) page), or build it yourself with Docker:
 
 ```sh
 cp android/.env.example android/.env && ./android/build.sh keystore   # once
@@ -121,6 +131,7 @@ The app runs this same engine on the phone in **phone mode** (`NATLAS_MODE=local
 | `NATLAS_DEVICE_KEY` | Optional, 32+ characters (`openssl rand -hex 32`). A browser given this key (app → **This device**) stays signed in until you log out; others are signed out after `NATLAS_SESSION_HOURS`. A new key signs every remembered browser out. |
 | `NATLAS_SESSION_HOURS` | Life of a login without the device key. Default `12`. |
 | `NATLAS_MAX_FAILURES`, `NATLAS_BAN_DAYS` | Failed logins (or device keys) within a day before a public IP is banned, and for how many days. Default `5` and `7`. Home addresses only get a 30-minute lockout. |
+| `NATLAS_DEMO_USERNAME`, `NATLAS_DEMO_PASSWORD` | Optional read-only demo login, shown on the start page. It sees a fresh copy of the built-in sample data (`<config>/demo`), never your files, and every change is refused. |
 | `NATLAS_TRUST_PROXY` | Default `true`: behind a proxy, reads the visitor IP (for the lockout and logs) from `CF-Connecting-IP`, `X-Real-IP`, or the **last** `X-Forwarded-For` entry. Set `false` if nothing sits in front of Natlas. |
 
 ### `natlas.yml` (app settings, no secrets)
@@ -137,6 +148,10 @@ plugins:                 # enabled plugins, in menu order
 lists:                   # shared dropdown lists, used as options: "@rooms"
   rooms: [Kitchen, Bedroom, Garage]
 ```
+
+### `layout.yml` (written by the app)
+
+**Customize** (side menu, or More on phones) saves the menu order, hidden lists and the Today screen to `layout.yml` next to `natlas.yml`. Today blocks: `agenda` (overdue / today / next 7 days), `glance` (the numbers, of every list or one), `list` (the first rows of a list, optionally one group or matching a word) and `note` (Markdown). Delete the file, or press **Reset to default**, to go back. The Android app keeps its own `layout.yml` in its config folder.
 
 ---
 
@@ -202,7 +217,8 @@ Dates compare as dates, numbers as numbers, and select fields by the order of th
 | `kind: record` | A single mapping edited as one form (for example, a profile) instead of a list. |
 | `readonly: true` | View only: no add, edit or delete. |
 | `file` | Read-only collections only: read another data file than the plugin's (for example one a sync job rewrites every night). |
-| `link` | `{ label, url }` - a button on each record opening an outside page; `{key}` in the URL is replaced by that field. |
+| `link` | `{ label, url }` - a button on each record opening an outside page; `{key}` in the URL is replaced by that field. `url: "{url}"` opens a `url` field as it is. |
+| `id_field` | The id key (default `id`). `none`: ids are made from `id_from` and never written - for files another app owns. |
 | `order: manual` | Keep the file order and offer move up/down. Otherwise lists are sorted on screen, never in the file. |
 | `new_at: start` | Insert new records at the top of the file. |
 | `id_from` | The field whose slug becomes a new record's id (default: `title` or `name`). |
@@ -211,7 +227,7 @@ Dates compare as dates, numbers as numbers, and select fields by the order of th
 | `widgets` | Today-screen numbers: `{ label, count: <where> }` or `{ label, sum: field, where, per_month_by: cycle-field, format: money }`. |
 | `summary` | `{ group_by: [...], sum: [...] }` adds a totals table to the list. |
 | `actions` | `{ id, label, icon, primary, set, when, confirm }`, or `{ move_to: other-collection, ask: [fields] }` to move a record between lists in the same file. |
-| `quick_add` | `{ title, date, tag, priority, time, hint }` - which fields the one-line quick add fills. |
+| `quick_add` | `{ title, date, tag, priority, time, url, hint }` - which fields the one-line quick add fills (`url`: a pasted link; `tag` on a `list` field takes several `#tags`). |
 | `charts` | Turns a dated list into a dashboard with Today / Trends / Sleep / Body / Days tabs: `{ date, goals, rings, tiles, trends, sleep, body }` (see below). |
 | `sync` | `{ source: health_connect, key: date, latest: { collection, set } }` - the Android app fills this list from Health Connect; `latest` copies the newest values into a record (`weight: "{weight}kg"`, `last_updated: "{today\|02 Jan 2006}"`). |
 
@@ -246,7 +262,8 @@ A metric is a number field, written as its name or `{ field, label, unit, goal, 
 
 - **Only the edited record changes.** Other records, unknown fields, comments and key order are left as they were. CSV rows you did not touch stay byte-for-byte identical.
 - **The file is never re-sorted.** Sorting and grouping happen on screen only, so a script that keeps its own order is never undone.
-- **Records without an `id`** get a stable id in memory. It is written to the file only when that record is edited. Opening a tab never writes.
+- **Records without an `id`** get a stable id in memory. It is written to the file only when that record is edited (never with `id_field: none`). Opening a tab never writes.
+- **Your layout is kept.** A list written without indent (`key:` then `- a: 1`) stays that way, and one-line rows (`- { name: "x", tags: ["a"] }`) stay one-line, new ones included.
 - **Conflicts are refused, not overwritten.** Every record has a revision. If another program changed the record after you opened it, the save is refused with a "changed elsewhere, reload" message.
 - **Writes are atomic** (temporary file, then rename), so readers never see a half-written file.
 - **YAML 1.1 safe.** Values that tools like PyYAML would misread (`'65:30'`, `'2026-10-05'`, `'yes'`) are quoted, just as `yaml.safe_dump` does.
@@ -271,9 +288,29 @@ plugins/           one folder per plugin, each holding a plugin.yml
 examples/data/     sample data for trying it out (also built into the binary)
 android/           the Android app: Kotlin shell, widgets, Docker build (android/build.sh)
 scripts/           dev.sh (local run), check-public.sh (pre-push secret check)
+.gitlab-ci.yml     tests on every push; a version tag builds the APK and the release
+.gitlab/           issue and merge request templates
 ```
 
 Run the tests with `go test ./...` (the `vendor/` folder is used automatically; no network needed).
+
+## Releases and the Android APK
+
+A release is a tag. Bump `VERSION`, add a `## X.Y.Z - date` section to `CHANGELOG.md`, then:
+
+```sh
+git commit -am "Natlas X.Y.Z" && git tag vX.Y.Z && git push && git push --tags
+```
+
+GitLab CI ([.gitlab-ci.yml](.gitlab-ci.yml)) then tests, builds the signed APK on **your own runner** (so it uses none of the free tier's 400 CI minutes, and the signing key never leaves your server), uploads it to the project's package registry and creates the release with that version's changelog. The newest APK is always at `/-/releases/permalink/latest/downloads/natlas.apk`. A tag that does not match `VERSION`, or a version without a changelog section, fails the pipeline.
+
+Set up the runner once, on the machine that holds the signing key and Docker:
+
+1. Install [GitLab Runner](https://docs.gitlab.com/runner/install/linux-repository/) and let it run as **your user** (it needs Docker and `$KEYS_HOME/.natlas-keys`): `sudo gitlab-runner uninstall && sudo gitlab-runner install --user "$USER" --working-directory "$HOME/.gitlab-runner" && sudo gitlab-runner start`.
+2. GitLab → the project → **Settings → CI/CD → Runners → New project runner**: tag `natlas-apk`, untick "Run untagged jobs". Copy the token, then `sudo gitlab-runner register --url https://gitlab.com --token <token> --executor shell`.
+3. Put the keystore password next to the key: `printf 'NATLAS_KEYSTORE_PASSWORD=%s\n' '<password>' > "$KEYS_HOME/.natlas-keys/natlas.env" && chmod 600 "$KEYS_HOME/.natlas-keys/natlas.env"`.
+
+The first release build downloads the Android SDK (a few GB, kept in the runner's `android/.cache`); later ones take a few minutes.
 
 ## Security notes
 
@@ -283,6 +320,7 @@ Run the tests with `go test ./...` (the `vendor/` folder is used automatically; 
 - **Browser:** strict Content-Security-Policy (`'unsafe-eval'` is needed by Alpine.js), HSTS, no framing, `nosniff`, a restrictive Permissions-Policy, and no third-party scripts, fonts or analytics.
 - **Container:** runs as your user, read-only root filesystem, all Linux capabilities dropped, `no-new-privileges`; it can only write to the data folder.
 - **Logs:** every change and every failed request is logged with the client IP, never with bodies, cookies or passwords.
+- **Demo login:** optional (`NATLAS_DEMO_USERNAME`). Its sessions are signed with their own key, it is served from a separate copy of the sample data, every change is refused with 403, and it can never get a device key.
 - **Exposure:** the about page (`/`), `/healthz` and the web manifest are public; everything else needs a session. If you put Natlas on the internet, an extra layer such as a VPN or Cloudflare Access is still a good idea.
 - **Publishing your fork:** `scripts/check-public.sh` works as a git pre-push hook. It blocks pushing `.env`, `natlas.yml`, `HOMELAB.md`, anything that looks like a real secret, or any word you list in `.private-words`.
 

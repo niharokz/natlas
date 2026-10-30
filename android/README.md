@@ -5,13 +5,13 @@ server uses (the folder Syncthing keeps in sync), so a change on either side sho
 the other after the next sync. Nothing leaves the phone: the engine listens only on
 `127.0.0.1`, behind a per-launch token.
 
-- **The same app as the web UI**: Today, every list, Calendar, Architecture, quick add, undo.
+- **The same app as the web UI**: Today, every list (Bookmarks and Locations too), Calendar, Architecture, quick add, undo, Customize.
 - **9 home-screen widgets**, resizable (see below). Tick a task straight from the widget;
   an **Undo** bar stays for 6 seconds.
 - **Fingerprint / device lock or a PIN**, lock-again delay, hidden in recent apps.
 - **Health from Samsung Health** (via Health Connect): every morning your steps, sleep, heart, weight and more go into `health.md`, with charts in Health → Daily and four health widgets.
-- **Settings** for the folder, which lists show and in what order, start screen,
-  theme, animations, widget style, and sync conflicts.
+- **Settings** for the folder, which lists load, start screen, theme, animations,
+  widget style, and sync conflicts. Menu order and the Today screen: **Customize**.
 
 Android 12 or newer (API 31+).
 
@@ -100,6 +100,10 @@ A day that did not change is not rewritten, so Syncthing only moves real changes
 
 If the phone was off at sync time, or background access is not allowed, the sync runs the next time you open Natlas.
 
+## Download
+
+The latest signed APK: <https://gitlab.com/niharokz/natlas/-/releases/permalink/latest/downloads/natlas.apk> (older ones on the Releases page). Every tag `vX.Y.Z` builds it; see "Releases and the Android APK" in the main README.
+
 ## Build (on your server, with Docker)
 
 Nothing to install but Docker. Run from the repo root:
@@ -127,6 +131,7 @@ Settings → **Config folder** chooses where the app keeps its configuration:
 
 - `settings.json` — these settings (folder, lists, lock mode, theme, widget style, health sync), written on every change. Choose the same folder after a reinstall or on a new phone and they come back. The PIN is never written there (a PIN lock comes back as device lock until you set the PIN again).
 - `natlas.yml` and `plugins/` — optional, for the engine: your own plugin changes, read instead of the built-in ones.
+- `layout.yml` — menu order and Today screen, written by **Customize**.
 
 Without a config folder everything stays inside the app and is lost when it is uninstalled. A folder inside your Syncthing notes (for example `notes/config/natlas/`) is also backed up to the server.
 
@@ -145,7 +150,7 @@ Without a config folder everything stays inside the app and is lost when it is u
 | Problem | Fix |
 |---|---|
 | "No Natlas files here" | Pick the `data` folder itself, not its parent. |
-| A list is missing | Settings → Lists: switch it on. Missing file? It is created on the first save (calendar) or the list stays empty. |
+| A list is missing | Settings → Lists: switch it on, and Customize: is it hidden? Missing file? It is created on the first save (calendar) or the list stays empty. |
 | Widget shows "Open Natlas once" | Open the app once after install or update; widgets need one snapshot. |
 | Widget is stale | Settings → Widgets → Refresh widgets now. Some phones stop background work for apps: set Natlas to "Unrestricted" battery use. |
 | "Changed elsewhere, reload" | The file changed under you (sync). Reload and redo the edit. |

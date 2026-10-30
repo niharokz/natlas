@@ -13,7 +13,7 @@ object AppConfig {
     private const val FILE = "settings.json"
 
     // Settings kept in settings.json, by their Prefs key.
-    private val STRINGS = listOf("folder", "order", "enabled", "start", "lock", "wTheme", "wAccent", "hTime")
+    private val STRINGS = listOf("folder", "enabled", "start", "lock", "wTheme", "wAccent", "hTime")
     private val INTS = listOf("delay", "wOpacity")
     private val BOOLS = listOf("pinBio", "secure", "animations", "main", "wPrivacy", "hOn")
 

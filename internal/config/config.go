@@ -54,7 +54,14 @@ type Settings struct {
 	MaxFailures  int    // NATLAS_MAX_FAILURES: failed logins within a day before the ban (default 5)
 	SessionHours int    // NATLAS_SESSION_HOURS: life of a login without the device key (default 12)
 	DeviceKey    string // NATLAS_DEVICE_KEY: entered once per browser, keeps it signed in until logout
+
+	// Demo login: read-only, over the built-in sample data (never your files)
+	DemoUsername string // NATLAS_DEMO_USERNAME (empty = no demo)
+	DemoPassword string // NATLAS_DEMO_PASSWORD
 }
+
+// Demo is true when the read-only demo login is configured.
+func (s *Settings) Demo() bool { return s.DemoUsername != "" && !s.Local }
 
 // LoadSettings reads Settings from the environment and reports every missing
 // required value at once.
@@ -80,6 +87,8 @@ func LoadSettings() (*Settings, error) {
 		MaxFailures:  envInt("NATLAS_MAX_FAILURES", 5),
 		SessionHours: envInt("NATLAS_SESSION_HOURS", 12),
 		DeviceKey:    strings.TrimSpace(os.Getenv("NATLAS_DEVICE_KEY")),
+		DemoUsername: strings.TrimSpace(os.Getenv("NATLAS_DEMO_USERNAME")),
+		DemoPassword: os.Getenv("NATLAS_DEMO_PASSWORD"),
 	}
 	if s.StateDir == "" {
 		s.StateDir = filepath.Dir(s.ConfigFile)
@@ -105,6 +114,9 @@ func LoadSettings() (*Settings, error) {
 	}
 	if s.DeviceKey != "" && len(s.DeviceKey) < 32 {
 		missing = append(missing, "NATLAS_DEVICE_KEY must be at least 32 characters (openssl rand -hex 32), or empty")
+	}
+	if s.DemoUsername != "" && (s.DemoPassword == "" || s.DemoUsername == s.Username) {
+		missing = append(missing, "NATLAS_DEMO_PASSWORD (and a NATLAS_DEMO_USERNAME other than NATLAS_USERNAME), or no demo")
 	}
 	if s.BanDays < 1 || s.MaxFailures < 1 || s.SessionHours < 1 {
 		missing = append(missing, "NATLAS_BAN_DAYS, NATLAS_MAX_FAILURES and NATLAS_SESSION_HOURS must be 1 or more")

@@ -50,6 +50,8 @@ const ICONS = {
   logout: '<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/>',
   moon: '<path d="M20 14A8 8 0 1 1 10 4a6 6 0 0 0 10 10z"/>',
+  bookmark: '<path d="M6 3h12v18l-6-4-6 4z"/>',
+  pin: '<path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/>',
   auto: '<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>',
 };
 
@@ -75,6 +77,8 @@ document.addEventListener('alpine:init', () => {
     app: { title: 'Natlas', currency: '₹', locale: 'en-IN', plugins: [] },
     route: { view: 'today', plugin: null, coll: null },
     today: { agenda: {}, stats: [] }, todayLoaded: false,
+    // layout.yml: menu order, hidden lists, Today blocks; cz = the Customize draft
+    layout: { menu: [], hidden: [], home: [{ type: 'agenda' }, { type: 'glance' }] }, cz: null, demo: false,
     data: {},                         // "plugin/collection" -> {records, groups, options, note}
     offline: !navigator.onLine,
     search: '', filters: {}, showFilters: false, summaryBy: '', collapsed: {}, quick: '',
@@ -133,6 +137,8 @@ document.addEventListener('alpine:init', () => {
 
     async loadApp() {
       this.app = await this.api('GET', '/api/app');
+      this.layout = await this.api('GET', '/api/layout').catch(() => this.layout);
+      if (this.demo) for (const p of this.app.plugins) for (const c of p.collections) c.readonly = true; // the demo is read-only
       document.title = this.app.title;
       this.applyRoute();
     },
@@ -168,6 +174,7 @@ document.addEventListener('alpine:init', () => {
       try {
         const r = await this.api('POST', '/api/login', this.loginForm);
         this.user = r.username; this.authed = true; this.loginForm.password = '';
+        this.demo = !!r.demo;
         this.api('GET', '/api/me').then(me => this.setDevice(me)).catch(() => {});
         await this.loadApp();
       } catch (e) { this.loginError = e.message; }
@@ -175,6 +182,7 @@ document.addEventListener('alpine:init', () => {
     },
 
     setDevice(me) {
+      this.demo = !!me.demo;
       this.device.available = !!me.device_key && !me.local;
       this.device.remembered = !!me.remembered;
       this.device.hours = me.session_hours || 12;
@@ -205,7 +213,7 @@ document.addEventListener('alpine:init', () => {
 
     async logout() {
       await this.api('POST', '/api/logout', {}).catch(() => {});
-      this.authed = false; this.moreOpen = false; this.data = {};
+      this.authed = false; this.moreOpen = false; this.data = {}; this.demo = false; this.cz = null;
       if ('caches' in window) caches.delete('natlas-api').catch(() => {});
     },
 
@@ -223,6 +231,13 @@ document.addEventListener('alpine:init', () => {
         this.route = { view: 'phone', plugin: null, coll: null };
         this.moreOpen = false;
         this.loadPhone();
+        window.scrollTo(0, 0);
+        return;
+      }
+      if (parts[0] === 'customize') {
+        this.route = { view: 'customize', plugin: null, coll: null };
+        this.moreOpen = false;
+        this.czStart();
         window.scrollTo(0, 0);
         return;
       }
@@ -304,6 +319,7 @@ document.addEventListener('alpine:init', () => {
       try {
         this.today = await this.api('GET', '/api/dashboard');
         this.todayLoaded = true;
+        for (const b of this.layout.home) if (b.type === 'list') this.load(b.plugin, b.coll, true);
         this.loadConflicts();
       } catch (e) { if (showToast && e.status !== 401) this.toast(e.message, 'error'); }
     },
@@ -312,11 +328,95 @@ document.addEventListener('alpine:init', () => {
       return new Date().toLocaleDateString(this.app.locale, { weekday: 'long', day: 'numeric', month: 'long' });
     },
 
-    agendaSections() {
+    agendaSections(b) {
       const labels = { overdue: 'Overdue', today: 'Today', upcoming: 'Next 7 days' };
-      return ['overdue', 'today', 'upcoming']
+      return (b?.sections?.length ? b.sections : ['overdue', 'today', 'upcoming'])
         .map(key => ({ key, label: labels[key], items: this.today.agenda?.[key] || [] }))
         .filter(s => s.items.length);
+    },
+
+    // ── layout: menu order and Today blocks (layout.yml, shared by web and phone) ──
+
+    menuPlugins() {
+      const order = this.layout.menu || [];
+      const pos = id => { const i = order.indexOf(id); return i < 0 ? 999 : i; };
+      return this.app.plugins.filter(p => !this.layout.hidden?.includes(p.id)).sort((a, b) => pos(a.id) - pos(b.id));
+    },
+    glanceStats(b) { return (this.today.stats || []).filter(s => !b.plugin || s.plugin === b.plugin); },
+    // blockRows: records of a list block (only its group, matching its search), first `limit`.
+    blockRows(b) {
+      const d = this.data[b.plugin + '/' + b.coll], c = this.collOf(b.plugin, b.coll);
+      if (!d || !c) return [];
+      let recs = d.records;
+      if (b.group) {
+        const g = d.groups?.find(x => x.label === b.group);
+        const ids = new Set(g ? g.ids : []);
+        recs = recs.filter(r => ids.has(r._id));
+      }
+      const q = (b.search || '').toLowerCase();
+      if (q) {
+        const keys = c.list.search?.length ? c.list.search : [c.list.title];
+        recs = recs.filter(r => keys.some(k => this.text(r[k]).toLowerCase().includes(q)));
+      }
+      return recs.slice(0, b.limit || 6);
+    },
+    blockTitle(b) {
+      if (b.title) return b.title;
+      if (b.type === 'list') return this.collOf(b.plugin, b.coll)?.label || b.plugin;
+      if (b.type === 'glance') return b.plugin ? (this.plugin(b.plugin)?.title || b.plugin) + ' at a glance' : 'At a glance';
+      if (b.type === 'agenda') return b.sections?.length ? 'Agenda: ' + b.sections.join(', ') : 'Agenda';
+      return 'Note';
+    },
+    listColls() { // every list collection, for list blocks
+      return this.app.plugins.flatMap(p => p.collections.filter(c => c.kind === 'list' && p.view !== 'document')
+        .map(c => ({ key: p.id + '/' + c.id, plugin: p.id, coll: c.id, label: p.title + (p.collections.length > 1 ? ' › ' + c.label : '') })));
+    },
+
+    // ── Customize (#/customize) ──
+    czStart() {
+      const l = JSON.parse(JSON.stringify(this.layout));
+      this.cz = { menu: this.app.plugins.map(p => p.id).sort((a, b) => l.menu.indexOf(a) - l.menu.indexOf(b)),
+        hidden: l.hidden || [], home: l.home || [], open: -1, adding: '', saving: false };
+    },
+    czMove(list, i, dir) {
+      const j = i + dir;
+      if (j < 0 || j >= list.length) return;
+      [list[i], list[j]] = [list[j], list[i]];
+      if (this.cz.open === i) this.cz.open = j; else if (this.cz.open === j) this.cz.open = i;
+    },
+    czToggle(id) {
+      const h = this.cz.hidden;
+      this.cz.hidden = h.includes(id) ? h.filter(x => x !== id) : [...h, id];
+    },
+    czAdd(type) {
+      if (!type) return;
+      const first = this.listColls()[0] || {};
+      const b = { agenda: { type, sections: [] }, glance: { type, plugin: '' }, note: { type, title: '', text: '' },
+        list: { type, plugin: first.plugin, coll: first.coll, title: '', group: '', search: '', limit: 6 } }[type];
+      this.cz.home.push(b);
+      this.cz.open = this.cz.home.length - 1;
+      this.cz.adding = '';
+      if (type === 'list') this.load(b.plugin, b.coll);
+    },
+    czSetColl(b, key) {
+      [b.plugin, b.coll] = key.split('/');
+      b.group = '';
+      this.load(b.plugin, b.coll);
+    },
+    czGroups(b) { return (this.data[b.plugin + '/' + b.coll]?.groups || []).map(g => g.label); },
+    czSection(b, key) {
+      const s = b.sections || [];
+      b.sections = s.includes(key) ? s.filter(x => x !== key) : ['overdue', 'today', 'upcoming'].filter(x => x === key || s.includes(x));
+    },
+    async czSave(reset) {
+      this.cz.saving = true;
+      try {
+        const body = reset ? { reset: true } : { menu: this.cz.menu, hidden: this.cz.hidden, home: this.cz.home };
+        this.layout = await this.api('PUT', '/api/layout', body);
+        this.toast(reset ? 'Back to the default layout' : 'Layout saved');
+        if (reset) this.czStart(); else location.hash = '#/today';
+      } catch (e) { this.toast(e.message, 'error'); }
+      if (this.cz) this.cz.saving = false;
     },
 
     agendaSub(it) {
@@ -519,7 +619,9 @@ document.addEventListener('alpine:init', () => {
     // linkFor fills a collection's `link:` URL template from the record.
     linkFor(c, r) {
       if (!c?.link || !r) return '';
-      return c.link.url.replace(/\{([^}]+)\}/g, (_, k) => encodeURIComponent(this.text(r[k])));
+      const whole = /^\{([^}]+)\}$/.exec(c.link.url); // "{url}": the field is the link
+      const u = whole ? this.text(r[whole[1]]) : c.link.url.replace(/\{([^}]+)\}/g, (_, k) => encodeURIComponent(this.text(r[k])));
+      return /^https?:\/\//.test(u) ? u : '';
     },
 
 
@@ -698,7 +800,7 @@ document.addEventListener('alpine:init', () => {
       const q = this.search.trim().toLowerCase();
       return d.records.filter(r => {
         for (const [k, v] of Object.entries(this.filters)) {
-          if (v && this.text(r[k]) !== v) return false;
+          if (v && (Array.isArray(r[k]) ? !r[k].map(String).includes(v) : this.text(r[k]) !== v)) return false;
         }
         if (q) {
           const keys = c.list.search?.length ? c.list.search : [c.list.title];
@@ -1160,7 +1262,6 @@ document.addEventListener('alpine:init', () => {
       return days;
     },
     chNum(v) { const n = v === null || v === undefined || v === '' ? NaN : Number(v); return Number.isFinite(n) ? n : null; },
-    chMetric(field) { return [...(this.curColl().charts?.trends || []), ...(this.curColl().charts?.rings || []), ...(this.curColl().charts?.tiles || []), ...(this.curColl().charts?.body || [])].find(m => m.field === field) || { field, label: this.fieldLabel(this.curColl(), field), unit: this.field(this.curColl(), field)?.unit || '', decimals: 1, chart: 'bar' }; },
     chGoal(m) {
       const ch = this.curColl().charts;
       const rec = ch?.goals ? this.data[this.curPlugin().id + '/' + ch.goals]?.records?.[0] : null;
@@ -1540,7 +1641,7 @@ document.addEventListener('alpine:init', () => {
     sheetWide() { return !!this.sheet.coll?.fields?.some(f => f.type === 'markdown'); },
     sheetActions() {
       const r = this.sheet.record;
-      if (!r || !this.sheet.coll) return [];
+      if (!r || !this.sheet.coll || this.sheet.coll.readonly) return [];
       return (this.sheet.coll.actions || []).filter(a => r._actions?.includes(a.id));
     },
 
@@ -1648,13 +1749,6 @@ document.addEventListener('alpine:init', () => {
     setPhone(key, value) {
       const raw = this.nativeCall('set', key, typeof value === 'string' ? value : JSON.stringify(value));
       if (raw) this.phone = JSON.parse(raw);
-    },
-    phoneMove(id, dir) {
-      const order = this.phone.plugins.map(p => p.id);
-      const i = order.indexOf(id), j = i + dir;
-      if (j < 0 || j >= order.length) return;
-      [order[i], order[j]] = [order[j], order[i]];
-      this.setPhone('order', order.join(','));
     },
     phoneToggle(id) {
       const on = this.phone.plugins.filter(p => p.on).map(p => p.id);

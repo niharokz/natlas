@@ -64,7 +64,7 @@ type Collection struct {
 	Label    string `yaml:"label" json:"label"`
 	Path     string `yaml:"path" json:"-"`              // dotted YAML path, e.g. "runs.planned"; unused for CSV
 	Kind     string `yaml:"kind" json:"kind"`           // "list" (default) or "record"
-	IDField  string `yaml:"id_field" json:"id_field"`   // default "id"
+	IDField  string `yaml:"id_field" json:"id_field"`   // default "id"; "none": ids are never written (files other apps own, e.g. Rahi's)
 	IDFrom   string `yaml:"id_from" json:"-"`           // field slugified into new ids
 	ReadOnly bool   `yaml:"readonly" json:"readonly"`   // no create/edit/delete at all
 	File     string `yaml:"file" json:"-"`              // read-only collections only: another data file (e.g. one synced by a batch job)
@@ -166,11 +166,12 @@ type QuickAdd struct {
 	Tag      string `yaml:"tag" json:"tag,omitempty"`
 	Priority string `yaml:"priority" json:"priority,omitempty"`
 	Time     string `yaml:"time" json:"time,omitempty"` // "8pm", "20:30" in the line set this field
+	URL      string `yaml:"url" json:"url,omitempty"`   // a pasted link goes here; the rest is the title (host if empty)
 	Hint     string `yaml:"hint" json:"hint,omitempty"`
 }
 
 // Link is an outside page for a record; {key} in the URL is replaced by
-// that field's value (URL-encoded).
+// that field's value (URL-encoded). A URL of only "{key}" opens a url field as is.
 type Link struct {
 	Label string `yaml:"label" json:"label"`
 	URL   string `yaml:"url" json:"url"`
@@ -210,6 +211,9 @@ func (c *Collection) Reindex() {
 		c.fieldMap[f.Key] = f
 	}
 }
+
+// StoresIDs is false for `id_field: none`: ids come from id_from and are never written.
+func (c *Collection) StoresIDs() bool { return c.IDField != "none" }
 
 // Field returns a field by key, or nil.
 func (c *Collection) Field(key string) *Field { return c.fieldMap[key] }
@@ -315,6 +319,9 @@ func (p *Plugin) prepare(app *App) error {
 		}
 		if c.IDField == "" {
 			c.IDField = "id"
+		}
+		if !c.StoresIDs() && (FormatOf(p.FileOf(c)) != "yaml" || p.Format() == "markdown" || c.Kind != "list") {
+			add("%s: id_field none needs a YAML list", where)
 		}
 		if c.File != "" {
 			if !c.ReadOnly {
@@ -437,7 +444,11 @@ func (p *Plugin) prepare(app *App) error {
 		}
 
 		if l := c.Link; l != nil {
-			if l.Label == "" || !(strings.HasPrefix(l.URL, "https://") || strings.HasPrefix(l.URL, "http://")) {
+			whole := strings.HasPrefix(l.URL, "{") && strings.Count(l.URL, "{") == 1 && strings.HasSuffix(l.URL, "}")
+			if f := c.fieldMap[strings.Trim(l.URL, "{}")]; whole && (f == nil || f.Type != "url") {
+				add("%s link: %s must be a url field", where, l.URL)
+			}
+			if l.Label == "" || !(whole || strings.HasPrefix(l.URL, "https://") || strings.HasPrefix(l.URL, "http://")) {
 				add("%s link: needs `label` and an http(s) `url`", where)
 			}
 			for _, part := range strings.Split(l.URL, "{")[1:] {
@@ -470,7 +481,7 @@ func (p *Plugin) prepare(app *App) error {
 			}
 		}
 		if q := c.QuickAdd; q != nil {
-			for _, k := range []string{q.Title, q.Date, q.Tag, q.Priority, q.Time} {
+			for _, k := range []string{q.Title, q.Date, q.Tag, q.Priority, q.Time, q.URL} {
 				if k != "" && c.fieldMap[k] == nil {
 					add("%s quick_add: %q is not a field", where, k)
 				}

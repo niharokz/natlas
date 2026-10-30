@@ -7,7 +7,8 @@
 #   ./android/build.sh debug      debug APK (no key)  → android/dist/natlas-<version>-debug.apk
 #   ./android/build.sh quick      signed release APK, no tests, 64-bit phones only (fastest)
 #
-# Settings come from android/.env (copy android/.env.example).
+# Settings come from android/.env (copy android/.env.example), or from
+# $KEYS_HOME/.natlas-keys/natlas.env next to the key (CI: the release runner).
 set -euo pipefail
 cd "$(dirname "$0")/.."                       # repo root
 
@@ -19,6 +20,7 @@ KEYS_DIR="${NATLAS_KEYSTORE_DIR:-$KEYS_HOME/.natlas-keys}"
 [ -f "$KEYS_DIR/natlas.jks" ] || [ ! -f "$HOME/.natlas-keys/natlas.jks" ] || {
   echo "Your key is still in ~/.natlas-keys. Move it: mkdir -p \"$KEYS_HOME\" && mv ~/.natlas-keys \"$KEYS_DIR\""; exit 1; }
 KEY_FILE="$KEYS_DIR/natlas.jks"
+if [ -z "${NATLAS_KEYSTORE_PASSWORD:-}" ] && [ -f "$KEYS_DIR/natlas.env" ]; then set -a; . "$KEYS_DIR/natlas.env"; set +a; fi
 IMAGE=natlas-android-builder
 
 mkdir -p android/.cache/home android/dist "$KEYS_DIR"
@@ -29,7 +31,8 @@ docker build -t "$IMAGE" - < android/Dockerfile
 
 # Runs a command in the builder as you (files stay yours), with caches kept in android/.cache.
 run() {
-  docker run --rm -t --user "$(id -u):$(id -g)" \
+  local tty=(); [ -t 1 ] && tty=(-t)            # CI has no terminal
+  docker run --rm ${tty[@]+"${tty[@]}"} --user "$(id -u):$(id -g)" \
     -v "$PWD":/src -v "$KEYS_DIR":/keys -w /src \
     -e HOME=/src/android/.cache/home \
     -e JAVA_TOOL_OPTIONS=-Duser.home=/src/android/.cache/home \

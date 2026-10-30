@@ -1,0 +1,39 @@
+# Bookmarks: links, tagged. The file is shared with other apps (a launcher
+# reads it too), so Natlas never writes ids into it: id_field: none.
+
+title: Bookmarks
+icon: bookmark
+description: Saved links with tags
+file: bookmark.md
+
+collections:
+  - id: bookmarks
+    label: Bookmarks
+    path: bookmarks
+    id_field: none
+    id_from: name
+    new_at: end
+
+    fields:
+      - { key: name, type: text, required: true }
+      - { key: url, label: URL, type: url, required: true }
+      - { key: tags, type: list, placeholder: "one per line" }
+      - { key: added, type: date, default: today }
+
+    list:
+      title: name
+      subtitle: [url, tags]
+      search: [name, url, tags]
+      filters: [tags]
+      sort: [name]
+
+    link: { label: Open, url: "{url}" }
+
+    quick_add:
+      title: name
+      url: url
+      tag: tags
+      hint: "https://example.org Example #reading"
+
+    widgets:
+      - { label: Bookmarks, count: {} }

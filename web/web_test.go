@@ -9,7 +9,7 @@ import (
 )
 
 func TestRoutes(t *testing.T) {
-	h, err := Handler("", &config.App{Title: "Natlas <x>"}, "1.0.0")
+	h, err := Handler("", &config.App{Title: "Natlas <x>"}, "1.0.0", Demo{User: "demo", Password: "d<e>mo"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -18,8 +18,9 @@ func TestRoutes(t *testing.T) {
 		h.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
 		return w.Code, w.Body.String()
 	}
-	if code, body := get("/"); code != 200 || !strings.Contains(body, `href="/app"`) || !strings.Contains(body, "natlas 1.0.0") {
-		t.Fatalf("landing: %d", code)
+	if code, body := get("/"); code != 200 || !strings.Contains(body, `href="/app"`) || !strings.Contains(body, "natlas 1.0.0") ||
+		!strings.Contains(body, "<code>d&lt;e&gt;mo</code>") || !strings.Contains(body, "/natlas.apk") {
+		t.Fatalf("landing: %d (demo login and APK link expected)", code)
 	}
 	if code, body := get("/app"); code != 200 || !strings.Contains(body, `x-data="natlas"`) || !strings.Contains(body, "Natlas &lt;x&gt;") {
 		t.Fatalf("app page: %d (title must be escaped)", code)

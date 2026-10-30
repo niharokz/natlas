@@ -23,7 +23,7 @@ class Bridge(private val act: MainActivity) {
         val (ok, note) = Storage.check(act, prefs.folder)
         val plugins = JSONArray()
         val on = prefs.enabled
-        for (id in prefs.order) plugins.put(JSONObject().put("id", id).put("title", Prefs.TITLES[id] ?: id).put("on", id in on))
+        for (id in Prefs.ALL) plugins.put(JSONObject().put("id", id).put("title", Prefs.TITLES[id] ?: id).put("on", id in on))
         val last = prefs.lastRefresh
         return JSONObject()
             .put("folder", if (Storage.isDemo(act, prefs.folder)) "Sample data (in the app)" else prefs.folder)
@@ -85,7 +85,6 @@ class Bridge(private val act: MainActivity) {
         var widgets = false
         when (key) {
             "enabled" -> { prefs.enabled = value.split(",").toSet(); restart = true }
-            "order" -> { prefs.order = value.split(","); restart = true }
             "start" -> prefs.start = value
             "lock" -> {
                 if (value == "pin" && prefs.pinHash.isEmpty()) act.runOnUiThread { act.choosePin(thenMode = "pin") }

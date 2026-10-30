@@ -21,12 +21,23 @@ const RecordID = "record"
 // touch - other records, unknown keys, comments, key order - survives a save.
 type yamlDoc struct {
 	path      string
-	root      *yaml.Node // the top-level mapping
-	hadHeader bool       // file started with an `updated:` stamp (Taskmaster's convention)
+	root      *yaml.Node      // the top-level mapping
+	hadHeader bool            // file started with an `updated:` stamp (Taskmaster's convention)
+	compact   map[string]bool // top-level lists written "key:\n- a" (no indent), as hand-kept files often are
+	padFlow   bool            // one-line rows written "- { a: 1 }" with spaces inside the braces
 }
 
+var (
+	compactSeqRe = regexp.MustCompile(`(?m)^([^\s#-][^:\n]*):[ \t]*\n(?:#[^\n]*\n)*- `)
+	padFlowRe    = regexp.MustCompile(`(?m)^[ \t]*- \{ `)
+	flowRowRe    = regexp.MustCompile(`^([ \t]*- )\{(.*)\}$`)
+)
+
 func parseYAML(path string, data []byte) (*yamlDoc, error) {
-	d := &yamlDoc{path: path}
+	d := &yamlDoc{path: path, compact: map[string]bool{}, padFlow: padFlowRe.Match(data)}
+	for _, m := range compactSeqRe.FindAllSubmatch(data, -1) {
+		d.compact[string(m[1])] = true
+	}
 	var doc yaml.Node
 	if len(bytes.TrimSpace(data)) > 0 {
 		if err := yaml.Unmarshal(data, &doc); err != nil {
@@ -147,6 +158,43 @@ func toRecord(m *yaml.Node) Record {
 	return rec
 }
 
+// matchStyle writes a new record the way its neighbours are written: one-line
+// `{ name: …, tags: [ … ] }` rows stay one-line (files other apps keep by hand).
+func matchStyle(m, seq *yaml.Node) {
+	flow := seq == nil
+	if seq != nil {
+		for _, n := range seq.Content {
+			if n.Kind == yaml.MappingNode && n.Style&yaml.FlowStyle != 0 {
+				flow = true
+				break
+			}
+		}
+	}
+	if !flow {
+		return
+	}
+	m.Style |= yaml.FlowStyle
+	for i := 1; i < len(m.Content); i += 2 {
+		quoteFlow(m.Content[i])
+	}
+}
+
+// quoteFlow writes a one-line row's values like the hand-kept rows: lists
+// inline, text "double-quoted" (dates keep their 'single' quotes).
+func quoteFlow(v *yaml.Node) {
+	switch v.Kind {
+	case yaml.SequenceNode, yaml.MappingNode:
+		v.Style |= yaml.FlowStyle
+		for _, c := range v.Content {
+			quoteFlow(c)
+		}
+	case yaml.ScalarNode:
+		if v.Style == 0 && v.Tag == "!!str" {
+			v.Style = yaml.DoubleQuotedStyle
+		}
+	}
+}
+
 // toValue converts a node to a plain value. Dates and times stay text: the
 // stored text is the truth, and "65:30" never turns into a number.
 func toValue(n *yaml.Node) any {
@@ -197,12 +245,15 @@ func (d *yamlDoc) Create(c *config.Collection, rec Record, id string, at int) (*
 		id = Unique(taken, Slug(src))
 	}
 	m := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
-	m.Content = append(m.Content, strNode(c.IDField), valueNode(id))
+	if c.StoresIDs() {
+		m.Content = append(m.Content, strNode(c.IDField), valueNode(id))
+	}
 	for _, f := range c.Fields { // schema order, so new records look like the rest of the file
-		if v, ok := rec[f.Key]; ok && f.Key != c.IDField {
+		if v, ok := rec[f.Key]; ok && (v != nil || c.StoresIDs()) && f.Key != c.IDField { // shared files: no empty keys
 			m.Content = append(m.Content, strNode(f.Key), valueNode(v))
 		}
 	}
+	matchStyle(m, seq)
 	if at < 0 || at > len(seq.Content) {
 		at = len(seq.Content)
 		if c.NewAt == "start" {
@@ -233,7 +284,7 @@ func (d *yamlDoc) Update(c *config.Collection, id string, fields Record) (*Item,
 			return nil, err
 		}
 		m = node.Content[it.index]
-		if !it.persisted { // first edit of a record without an id: store its id now
+		if !it.persisted && c.StoresIDs() { // first edit of a record without an id: store its id now
 			if i := mapIndex(m, c.IDField); i >= 0 {
 				m.Content[i+1] = valueNode(it.ID)
 			} else {
@@ -253,6 +304,9 @@ func (d *yamlDoc) Update(c *config.Collection, id string, fields Record) (*Item,
 		} else {
 			m.Content = append(m.Content, strNode(key), valueNode(v))
 		}
+	}
+	if m.Style&yaml.FlowStyle != 0 {
+		matchStyle(m, nil)
 	}
 	rec := toRecord(m)
 	if c.Kind == "record" {
@@ -319,7 +373,32 @@ func (d *yamlDoc) Save() error {
 	if err := enc.Close(); err != nil {
 		return err
 	}
-	return writeAtomic(d.path, buf.Bytes())
+	return writeAtomic(d.path, d.restyle(buf.Bytes()))
+}
+
+// restyle keeps the file's own layout where yaml.v3 has no option for it, so
+// saving one record does not rewrite every line of a hand-kept file.
+func (d *yamlDoc) restyle(out []byte) []byte {
+	if len(d.compact) == 0 && !d.padFlow {
+		return out
+	}
+	lines := strings.Split(string(out), "\n")
+	inSeq := false // inside a top-level list being de-indented
+	for i, l := range lines {
+		top := l != "" && l[0] != ' '
+		if top {
+			inSeq = d.compact[strings.TrimSuffix(l, ":")] && i+1 < len(lines) && strings.HasPrefix(lines[i+1], "  - ")
+		} else if inSeq && strings.HasPrefix(l, "  ") {
+			l = l[2:]
+		}
+		if d.padFlow {
+			if m := flowRowRe.FindStringSubmatch(l); m != nil {
+				l = m[1] + "{ " + m[2] + " }"
+			}
+		}
+		lines[i] = l
+	}
+	return []byte(strings.Join(lines, "\n"))
 }
 
 // ── value -> node ─────────────────────────────────────────────────────────

@@ -1,16 +1,15 @@
 # ── build ────────────────────────────────────────────────────────────────
 # Dependencies are vendored (vendor/), so the build needs no network access.
 FROM mirror.gcr.io/library/golang:1.24-alpine AS build
-ARG VERSION=dev
 WORKDIR /src
-COPY go.mod ./
+COPY go.mod VERSION ./
 COPY vendor ./vendor
 COPY cmd ./cmd
 COPY internal ./internal
 COPY web ./web
 COPY plugins ./plugins
 COPY examples ./examples
-RUN CGO_ENABLED=0 go build -mod=vendor -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/natlas ./cmd/natlas
+RUN CGO_ENABLED=0 go build -mod=vendor -trimpath -ldflags="-s -w -X main.version=$(cat VERSION)" -o /out/natlas ./cmd/natlas
 
 # ── run ──────────────────────────────────────────────────────────────────
 # An empty image: just the binary (web files and timezone data are built in)

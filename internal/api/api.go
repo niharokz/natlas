@@ -31,9 +31,11 @@ import (
 
 // Server holds what every handler needs.
 type Server struct {
-	App  *config.App
-	Auth *auth.Auth
-	Main bool // this copy merges Syncthing conflict copies
+	App        *config.App
+	Auth       *auth.Auth
+	Main       bool   // this copy merges Syncthing conflict copies
+	LayoutFile string // layout.yml (menu order, Today screen); "" = defaults, not editable
+	ReadOnly   bool   // the demo: every change is refused
 }
 
 // Register adds the API routes to mux.
@@ -46,10 +48,15 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /local", s.Auth.LocalEntry)
 
 	protected := func(pattern string, h http.HandlerFunc) {
+		if s.ReadOnly && !strings.HasPrefix(pattern, "GET ") {
+			h = func(w http.ResponseWriter, r *http.Request) { fail(w, http.StatusForbidden, "The demo is read-only") }
+		}
 		mux.Handle(pattern, s.Auth.Require(sameOrigin(h)))
 	}
 	protected("GET /api/app", s.appInfo)
 	protected("GET /api/dashboard", s.dashboard)
+	protected("GET /api/layout", s.getLayout)
+	protected("PUT /api/layout", s.putLayout)
 	protected("GET /api/p/{plugin}/{coll}", s.list)
 	protected("POST /api/p/{plugin}/{coll}", s.create)
 	protected("POST /api/p/{plugin}/{coll}/quick", s.quickAdd)
@@ -265,7 +272,7 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 func options(c *config.Collection, items []*store.Item) map[string][]string {
 	out := map[string][]string{}
 	for _, f := range c.Fields {
-		if f.Type != "select" && !f.FromData {
+		if f.Type != "select" && f.Type != "list" && !f.FromData {
 			continue
 		}
 		seen := map[string]bool{}
@@ -278,10 +285,15 @@ func options(c *config.Collection, items []*store.Item) map[string][]string {
 		}
 		var extra []string
 		for _, it := range items {
-			v := strings.TrimSpace(query.Text(it.Rec[f.Key]))
-			if v != "" && !seen[v] {
-				seen[v] = true
-				extra = append(extra, v)
+			vals := []any{it.Rec[f.Key]}
+			if l, ok := it.Rec[f.Key].([]any); ok { // tags: each one is an option
+				vals = l
+			}
+			for _, x := range vals {
+				if v := strings.TrimSpace(query.Text(x)); v != "" && !seen[v] {
+					seen[v] = true
+					extra = append(extra, v)
+				}
 			}
 		}
 		sort.Strings(extra)

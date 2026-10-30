@@ -208,3 +208,36 @@ func TestClientIP(t *testing.T) {
 		t.Fatalf("untrusted proxy headers used: %s", got)
 	}
 }
+
+func TestDemoLogin(t *testing.T) {
+	s := settings()
+	s.DemoUsername, s.DemoPassword = "demo", "demo"
+	a := New(s)
+	w := login(a, "demo", "demo", "1.1.1.1")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"demo":true`) {
+		t.Fatalf("demo login: %d %s", w.Code, w.Body)
+	}
+	r := withCookie(w)
+	if a.User(r) != "demo" || !a.IsDemo(r) {
+		t.Fatal("demo session not recognised")
+	}
+	if a.IsDemo(withCookie(login(a, "u", "correct horse", "1.1.1.1"))) {
+		t.Fatal("owner taken for the demo")
+	}
+	// the demo cookie cannot be replayed as the owner, and dies with the demo login
+	off := *s
+	off.DemoUsername = ""
+	if New(&off).User(r) != "" {
+		t.Fatal("demo session survived turning the demo off")
+	}
+	// device key: never for the demo
+	dr := httptest.NewRequest("POST", "/api/device", strings.NewReader(`{"key":"x"}`))
+	for _, c := range w.Result().Cookies() {
+		dr.AddCookie(c)
+	}
+	dw := httptest.NewRecorder()
+	a.Device(dw, dr)
+	if dw.Code != 403 {
+		t.Fatalf("device key for demo: %d", dw.Code)
+	}
+}

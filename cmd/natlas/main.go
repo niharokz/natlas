@@ -116,11 +116,30 @@ func serve() {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Write([]byte("ok\n"))
 	})
-	(&api.Server{App: app.app, Auth: authn, Main: s.Main}).Register(mux)
+	(&api.Server{App: app.app, Auth: authn, Main: s.Main, LayoutFile: filepath.Join(s.StateDir, "layout.yml")}).Register(mux)
+	var handler http.Handler = mux
+	if s.Demo() {
+		demo, err := demoMux(s, authn)
+		if err != nil {
+			log.Fatalf("demo login: %v", err)
+		}
+		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasPrefix(r.URL.Path, "/api/") && authn.IsDemo(r) {
+				demo.ServeHTTP(w, r) // the demo login only ever sees the sample data
+				return
+			}
+			mux.ServeHTTP(w, r)
+		})
+		log.Printf("demo login %q: read-only sample data in %s", s.DemoUsername, filepath.Join(s.StateDir, "demo"))
+	}
 	if s.Main {
 		go mergeLoop(app.app) // fold Syncthing conflict copies back in
 	}
-	site, err := web.Handler(s.WebDir, app.app, version)
+	demo := web.Demo{}
+	if s.Demo() {
+		demo = web.Demo{User: s.DemoUsername, Password: s.DemoPassword}
+	}
+	site, err := web.Handler(s.WebDir, app.app, version, demo)
 	if err != nil {
 		log.Fatalf("cannot load web files: %v", err)
 	}
@@ -128,7 +147,7 @@ func serve() {
 
 	srv := &http.Server{
 		Addr:              s.Addr,
-		Handler:           recoverer(accessLog(authn, authn.Guard(securityHeaders(s.CookieSecure, mux)))),
+		Handler:           recoverer(accessLog(authn, authn.Guard(securityHeaders(s.CookieSecure, handler)))),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -162,6 +181,27 @@ func serve() {
 	defer cancel()
 	_ = srv.Shutdown(ctx) // let in-flight saves finish
 	log.Println("natlas stopped")
+}
+
+// demoMux serves the API for the demo login: the same plugins over a fresh
+// copy of the sample data (<state dir>/demo), read-only, default layout.
+func demoMux(s *config.Settings, authn *auth.Auth) (http.Handler, error) {
+	dir := filepath.Join(s.StateDir, "demo")
+	if err := os.RemoveAll(dir); err != nil {
+		return nil, err
+	}
+	if _, err := writeDemo(dir); err != nil {
+		return nil, err
+	}
+	ds := *s
+	ds.DataDir = dir
+	app, err := config.Load(&ds)
+	if err != nil {
+		return nil, err
+	}
+	mux := http.NewServeMux()
+	(&api.Server{App: app, Auth: authn, ReadOnly: true}).Register(mux)
+	return mux, nil
 }
 
 // mergeLoop merges Syncthing conflict copies every 15 s (main device only).

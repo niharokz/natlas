@@ -1,0 +1,42 @@
+# Locations: saved places with coordinates. The file is shared with other apps
+# (a launcher adds places from Google Maps → Share), so no ids are written.
+
+title: Locations
+icon: pin
+description: Saved places and their coordinates
+file: location.md
+
+collections:
+  - id: locations
+    label: Locations
+    path: locations
+    id_field: none
+    id_from: name
+
+    fields:
+      - { key: name, type: text, required: true }
+      - { key: type, type: select, options: data, allow_new: true, placeholder: "personal, places…" }
+      - { key: lat, label: Latitude, type: number }
+      - { key: lon, label: Longitude, type: number }
+      - { key: radius_m, label: Radius (m), type: number }
+      - { key: address, type: textarea }
+      - { key: url, label: Map link, type: url }
+      - { key: added, type: date, default: today }
+
+    list:
+      title: name
+      subtitle: [address]
+      badges: [type]
+      search: [name, address, type]
+      filters: [type]
+      sort: [type, name]
+
+    link: { label: Open in Maps, url: "https://www.google.com/maps/search/?api=1&query={lat},{lon}" }
+
+    quick_add:
+      title: name
+      url: url
+      hint: "Gym https://maps.app.goo.gl/…"
+
+    widgets:
+      - { label: Places, count: {} }

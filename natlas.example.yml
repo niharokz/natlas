@@ -18,6 +18,8 @@ plugins:
   - calendar
   - health
   - inventory
+  - bookmarks
+  - locations
   - architecture
 
 # Shared dropdown lists. Use them in a plugin.yml field as `options: "@name"`.

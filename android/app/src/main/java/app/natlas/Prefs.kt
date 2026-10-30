@@ -10,10 +10,11 @@ class Prefs(ctx: Context) {
 
     companion object {
         // Built-in lists, in the default menu order.
-        val ALL = listOf("events", "subscriptions", "calendar", "health", "inventory", "architecture")
+        val ALL = listOf("events", "subscriptions", "calendar", "health", "inventory", "bookmarks", "locations", "architecture")
         val TITLES = mapOf(
             "events" to "Events", "subscriptions" to "Subscriptions", "calendar" to "Calendar",
-            "health" to "Health", "inventory" to "Inventory", "architecture" to "Architecture",
+            "health" to "Health", "inventory" to "Inventory",
+            "bookmarks" to "Bookmarks", "locations" to "Locations", "architecture" to "Architecture",
         )
         val DELAYS = listOf(0, 60, 300, 900, -1)
     }
@@ -31,20 +32,12 @@ class Prefs(ctx: Context) {
         get() = p.getString("folder", "") ?: ""
         set(v) = p.edit().putString("folder", v).apply()
 
-    // All list ids in menu order (enabled or not).
-    var order: List<String>
-        get() {
-            val saved = (p.getString("order", "") ?: "").split(",").filter { it in ALL }
-            return saved + ALL.filter { it !in saved }
-        }
-        set(v) = p.edit().putString("order", v.filter { it in ALL }.joinToString(",")).apply()
-
     var enabled: Set<String>
         get() = (p.getString("enabled", null) ?: ALL.joinToString(",")).split(",").filter { it in ALL }.toSet()
         set(v) = p.edit().putString("enabled", v.joinToString(",")).apply()
 
-    // NATLAS_PLUGINS for the engine: enabled lists in menu order.
-    val plugins: String get() = order.filter { it in enabled }.joinToString(",")
+    // NATLAS_PLUGINS for the engine: the enabled lists (menu order: Customize, layout.yml).
+    val plugins: String get() = ALL.filter { it in enabled }.joinToString(",")
 
     var start: String
         get() = p.getString("start", "#/today") ?: "#/today"

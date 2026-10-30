@@ -23,16 +23,17 @@
 browser ──► recoverer ─► accessLog ─► securityHeaders ─► net/http ServeMux
 (Alpine, app.js)                   ├── /healthz ....................... plain "ok", no auth (Docker health check)
                                    ├── /api/login /logout /me ......... internal/auth
-                                   ├── /api/app /dashboard /p/... ..... internal/api ──► internal/store ──► data file
+                                   ├── /api/app /dashboard /layout /p/. internal/api ──► internal/store ──► data file
                                    │                                        │               (yaml.Node / csv rows)
                                    │                                        └── internal/query (where, sort)
+                                   │   (demo session: a second api.Server over <config>/demo, read-only)
                                    └── / (about page) /app (the app)
                                        /assets/ /sw.js /manifest ...... web (go:embed)
 ```
 
 The main pieces:
 
-- **Process.** `cmd/natlas/main.go` loads the config, wires the routes and middleware, and shuts down gracefully. Subcommands: `natlas check` (validate the config), `natlas hash-password` (stdin → `NATLAS_PASSWORD_HASH=…`), `natlas health` (GET `/healthz`, for the Docker HEALTHCHECK) and `natlas version` (set with `-ldflags "-X main.version=…"`, Docker build arg `VERSION`).
+- **Process.** `cmd/natlas/main.go` loads the config, wires the routes and middleware, and shuts down gracefully. Subcommands: `natlas check` (validate the config), `natlas hash-password` (stdin → `NATLAS_PASSWORD_HASH=…`), `natlas health` (GET `/healthz`, for the Docker HEALTHCHECK) and `natlas version` (set with `-ldflags "-X main.version=…"` from the `VERSION` file, in Docker and in the Android build).
 - **Middleware** (outermost first):
   - `recoverer` turns a panic into a logged 500.
   - `accessLog` logs every non-GET request and every failed request (except 401/404) as `ip method path status duration`. It never logs bodies, cookies or query strings.
@@ -55,9 +56,10 @@ The main pieces:
 | `internal/store` | The `Doc` interface: `Items`, `Create`, `Update`, `Delete`, `Move`, `Top`, `Save`. Implemented by `yamlDoc`, `csvDoc` and `markdownDoc`. A `File` is one path plus its lock: `For(plugin)` is the plugin's own file, `ForCollection(plugin, coll)` the file a collection reads (`Plugin.FileOf`). `File.Change(fn)` handles lock → read → fn → save. |
 | `internal/query` | The where language (`eq ne in nin lt lte gt gte empty contains`, plus `any` / `all` / `not`). Values are compared by field type. `Sort` is stable and puts empty values last. |
 | `internal/api` | Generic handlers, input cleaning and validation (`values.go`), Today screen (`dashboard.go`: reads each file once; a read-only entry with the same title and date as one already listed is skipped), quick-add parser (`quick.go`: date words, `#tag`, `!priority`, and `8pm` / `20:30` for a `time` role). |
-| `internal/auth` | Signed session cookie (`user|expiry|kind`, HMAC-SHA256), named `__Host-natlas` when Secure (`natlas_session` for plain-http testing). Kind `s`: `NATLAS_SESSION_HOURS` (12 h). Kind `d`: 400 days, renewed daily while used, signed with a key that also includes `NATLAS_DEVICE_KEY`; issued when the browser holds the device cookie (`__Host-natlas-device`, an HMAC mark set by `POST /api/device {key}`; `DELETE` forgets it). The base signing key is HMAC(secret key, username + credential), so a new password or secret invalidates every session; a new device key only the `d` ones. Bans (`bans.go`): 5 failed logins or device keys per public IP within 24 h → banned `NATLAS_BAN_DAYS` (7), stored in `<NATLAS_STATE_DIR>/bans.yml` (default: the config folder), re-read when it changes so `natlas unban` takes effect at once; `Guard` answers 403 to every request from a banned IP except `/healthz`. Private, loopback and link-local IPs are never banned (30 min in-memory lockout instead). Password is plain (`NATLAS_PASSWORD`) or a PBKDF2-SHA256 hash (`NATLAS_PASSWORD_HASH`, format `pbkdf2-sha256:iter:salt:key`, no `$` so compose needs no quoting), compared in constant time. Lockout: 5 failures per IP in 30 minutes, plus a 400 ms delay on every failure; the table is held in memory and pruned when it reaches 10 000 IPs. Client IP (`ClientIP`, when `NATLAS_TRUST_PROXY`): `CF-Connecting-IP`, then `X-Real-IP`, then the *last* `X-Forwarded-For` entry, otherwise the TCP peer. Login and logout also go through the same-origin check. |
+| `internal/auth` | Signed session cookie (`user|expiry|kind`, HMAC-SHA256), named `__Host-natlas` when Secure (`natlas_session` for plain-http testing). Kind `s`: `NATLAS_SESSION_HOURS` (12 h). Kind `x`: the demo login (`NATLAS_DEMO_USERNAME`), its own HMAC key, `IsDemo(r)` routes its `/api/` requests to the demo server; never a device session. Kind `d`: 400 days, renewed daily while used, signed with a key that also includes `NATLAS_DEVICE_KEY`; issued when the browser holds the device cookie (`__Host-natlas-device`, an HMAC mark set by `POST /api/device {key}`; `DELETE` forgets it). The base signing key is HMAC(secret key, username + credential), so a new password or secret invalidates every session; a new device key only the `d` ones. Bans (`bans.go`): 5 failed logins or device keys per public IP within 24 h → banned `NATLAS_BAN_DAYS` (7), stored in `<NATLAS_STATE_DIR>/bans.yml` (default: the config folder), re-read when it changes so `natlas unban` takes effect at once; `Guard` answers 403 to every request from a banned IP except `/healthz`. Private, loopback and link-local IPs are never banned (30 min in-memory lockout instead). Password is plain (`NATLAS_PASSWORD`) or a PBKDF2-SHA256 hash (`NATLAS_PASSWORD_HASH`, format `pbkdf2-sha256:iter:salt:key`, no `$` so compose needs no quoting), compared in constant time. Lockout: 5 failures per IP in 30 minutes, plus a 400 ms delay on every failure; the table is held in memory and pruned when it reaches 10 000 IPs. Client IP (`ClientIP`, when `NATLAS_TRUST_PROXY`): `CF-Connecting-IP`, then `X-Real-IP`, then the *last* `X-Forwarded-For` entry, otherwise the TCP peer. Login and logout also go through the same-origin check. |
 | `internal/merge` | Syncthing conflict copies (`<stem>.sync-conflict-YYYYMMDD-HHMMSS-XXXXXXX<ext>`). `Scan` merges each copy into its file record by record through `store.File.Change`: records only in the copy are appended, records that differ keep the file's version and the copy's version is queued in `<data>/.natlas/conflicts.yml` (stable `conflictID`), then the copy is deleted. Files only read by read-only collections are skipped (their writer owns them). `List` / `Resolve(id, kept|other)` back the Today card and its dialog. |
 | `internal/store/upsert.go` | `Upserter` (YAML docs): set fields on the record matching a key (the date) or insert a new one in key order; one parse, one write for a whole batch. Unchanged input means no write. |
+| `internal/api/layout.go` | `GET/PUT /api/layout`: `layout.yml` in the state dir (menu order, hidden, Today blocks `agenda` / `glance` / `list` / `note`). Read through `fit()`: unknown plugins dropped, new ones appended, broken blocks skipped. `{reset:true}` deletes the file. `Server.LayoutFile == ""` (demo) = defaults, not editable. `Server.ReadOnly` (demo) turns every non-GET route into 403. |
 | `internal/dates` | `Today()` in the container's TZ; parsing with a Go layout (ISO is always accepted too); tokens such as `today+7`; `CycleDays`, using the same rules as Taskmaster's `advance()`; `NextAnniversary`, where 29 Feb falls back to 28 Feb as in Taskmaster's `daily_update.py`; `Clock` normalises `6:30pm` / `18:30` to `HH:MM` (a bare `8` or a dotted `12.10` without am/pm is not a time). |
 | `web` | Embeds the UI. `GET /` is the public about page (`landing.html` + `landing.css`, no JavaScript); `GET /app` is the app (`index.html`); `/app/` redirects. `{{VERSION}}` (a hash of all web files) busts caches; `{{RELEASE}}` is the binary version; `{{TITLE}}` is HTML-escaped. `/assets/` refuses directory listings and `.go` files. Generates the PWA manifest (`start_url` and `id` `/app`), with one shortcut per plugin. `NATLAS_WEB_DIR` serves the files from disk during development. |
 
@@ -71,7 +73,8 @@ The main pieces:
 - **Update.** Only the given keys have their value nodes replaced, and line and head comments are carried over. New keys are appended. The record's position never changes.
 - **Create.** The new mapping gets `id` first, then the fields in schema order. It goes at `new_at` (end or start), or at an explicit index (used by undo-delete).
 - **Writing values.** `valueNode()` single-quotes any string that matches PyYAML's implicit resolvers (bool, int including sexagesimal, float, null, timestamp, merge). Whole floats are written as ints (`1200`, not `1200.0`).
-- **Output.** The file is encoded with a 2-space indent. Lists come out as `  - item` (go-yaml style) rather than PyYAML's `- item`. Both are valid, and Taskmaster rewrites the file in its own style overnight anyway.
+- **Output.** The file is encoded with a 2-space indent, then `restyle()` puts back what yaml.v3 cannot keep: top-level lists that were written unindented (`key:\n- a`, per key, found at parse time) stay unindented, and one-line rows written `- { a: 1 }` keep the inner spaces. New rows copy flow style from their siblings (`matchStyle`: lists inline, strings double-quoted).
+- **`id_field: none`.** For files another app owns (Rahi's bookmarks and locations): ids are only derived (`slug(id_from)`), never written on create or first edit, and empty fields are not written either. YAML lists only.
 
 ### Markdown (`store/markdown.go`, `format: markdown`)
 
@@ -98,6 +101,7 @@ The main pieces:
 | Method | Path | Body → result |
 |---|---|---|
 | GET | `/api/app` | Title, currency, locale, username, and the plugin definitions (as JSON from the config types). |
+| GET / PUT | `/api/layout` | `{menu, hidden, home:[{type, title?, sections?, plugin?, coll?, group?, search?, limit?, text?}]}`; PUT `{reset:true}` restores the defaults. |
 | GET | `/api/dashboard` | `{agenda:{overdue,today,upcoming}, stats:[{plugin,widgets,error?}], today}` |
 | GET | `/api/p/{p}/{c}` | `{records, groups:[{label,collapsed,ids}], options:{field:[values]}, note}`. Each record has `_id`, `_rev`, `_actions` (the action ids that apply) and anniversary virtual fields. Records come sorted by `list.sort` (unless `order: manual`); grouping happens on the server. |
 | POST | `/api/p/{p}/{c}` | `{values, id?, at?}` → 201 `{record}`. Every field is written; missing ones get their default or null. |
@@ -130,10 +134,12 @@ Undo works entirely on the client, using what the server returns:
 
 ## 6. Frontend (`web/`)
 
-- **Pages.** `/` is a static about page (features, install steps, configuration, plugin example, security) with an Install and a Sign in button, styled with the nss tokens in `landing.css`. The app lives at `/app`; its login screen links back to `/`.
+- **Pages.** `/` is a short static about page (features, lists, three install steps, the demo login via `{{DEMO}}`, the latest-APK link) with a Sign in button, styled with the nss tokens in `landing.css`. The app lives at `/app`; its login screen links back to `/`.
 - **Structure.** One Alpine component, `natlas`, in `app.js`, and one `index.html`. Load order: `app.js` (defer), then `alpine.min.js` (defer). The component registers on `alpine:init`.
 - **Routing.**
-  - Screens use the hash: `#/today`, `#/p/{plugin}/{collection}`.
+  - Screens use the hash: `#/today`, `#/p/{plugin}/{collection}`, `#/customize`.
+- **Layout.** `loadApp` fetches `/api/layout`; `menuPlugins()` orders the rail, bottom bar and More sheet. The Today screen loops over `layout.home`: `agendaSections(b)`, `glanceStats(b)`, `blockRows(b)` (list blocks load their collection on `loadToday`), `md(b.text)`. `#/customize` edits a copy (`cz`) and saves it with one PUT.
+- **Demo.** `/api/me` and the login reply carry `demo`; the app then marks every collection read-only (no FAB, quick add, Save, actions), hides agenda buttons and shows a banner. The server refuses writes anyway.
   - The edit sheet is a `<dialog>`. Opening it pushes a history entry, so the phone's Back button closes it.
 - **Rendering.** Everything comes from the plugin definition: `list.title`, `subtitle`, `badges`, `search`, `filters`; `actions` with `primary`; `quick_add`; `summary`; `link` (a button in the sheet).
 - **Calendar view** (`view: calendar`, the `calendar` section of `app.js`):
@@ -224,6 +230,8 @@ WidgetRouter (invisible activity) ── tick → action → Undo bar 6 s → pa
 - **Android shell** (no AndroidX, minSdk 31): `Engine` starts `libnatlas.so` from `nativeLibraryDir` (`useLegacyPackaging`) with a fixed port saved in prefs and `TZ` from the phone; `Lock` uses `BiometricPrompt` (`BIOMETRIC_WEAK | DEVICE_CREDENTIAL`) or a PBKDF2 PIN (`Pin`); widgets use `RemoteViews` size maps (2×1 … 5×5), `RemoteCollectionItems` for lists, `setOnCheckedChangeResponse` for ticks and day/night colour pairs.
 
 ## Changelog
+
+- **1.0.1 (2026-10-30).** `plugins/bookmarks` + `plugins/locations` (`id_field: none`, `link: {url: "{url}"}`, `quick_add.url`, list-field tag options/filters); yaml `restyle` (compact lists, padded flow rows); `/api/layout` + `#/customize` + Today blocks; demo login (`x` sessions, demo mux, `ReadOnly`); landing page `{{DEMO}}`; `.gitlab-ci.yml` (test, apk on the `natlas-apk` runner, release via glab image) and `.gitlab/` templates; Docker version from `VERSION`; Android list order moved to `layout.yml` (`Prefs.order` removed).
 
 - **1.0.0 (2026-10-20).** Version reset (old 2.0.0–3.1.1 → 0.2.0–0.6.1; Android versionCode epoch 100000). `auth/bans.go` multi-day IP bans with `Guard`, `natlas bans` / `unban`; session kinds `s` (12 h) / `d` (until logout, device key, `POST/DELETE /api/device`); `NATLAS_CONFIG_DIR` mounted at `/config` (natlas.yml + bans.yml); Android `AppConfig` (config folder: settings.json, natlas.yml, plugins/); keys under `$KEYS_HOME`.
 

@@ -58,7 +58,9 @@ func (d *yamlDoc) Upsert(c *config.Collection, key string, recs []Record) (int, 
 			continue
 		}
 		m := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
-		m.Content = append(m.Content, strNode(c.IDField), valueNode(k))
+		if c.StoresIDs() {
+			m.Content = append(m.Content, strNode(c.IDField), valueNode(k))
+		}
 		for _, f := range c.Fields { // schema order
 			if v, ok := rec[f.Key]; ok && v != nil && f.Key != c.IDField {
 				m.Content = append(m.Content, strNode(f.Key), valueNode(v))

@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -99,7 +100,16 @@ func parseQuick(c *config.Collection, text string, today time.Time) map[string]a
 		w := words[i]
 
 		if q.Tag != "" && strings.HasPrefix(w, "#") && len(w) > 1 {
-			out[q.Tag] = w[1:]
+			if f := c.Field(q.Tag); f != nil && f.Type == "list" { // "#a #b" → [a, b]
+				list, _ := out[q.Tag].([]any)
+				out[q.Tag] = append(list, w[1:])
+			} else {
+				out[q.Tag] = w[1:]
+			}
+			continue
+		}
+		if q.URL != "" && out[q.URL] == nil && (strings.HasPrefix(w, "https://") || strings.HasPrefix(w, "http://")) {
+			out[q.URL] = w
 			continue
 		}
 		if q.Priority != "" && strings.HasPrefix(w, "!") && len(w) > 1 {
@@ -128,6 +138,11 @@ func parseQuick(c *config.Collection, text string, today time.Time) map[string]a
 		title = append(title, w)
 	}
 	out[q.Title] = strings.Join(title, " ")
+	if u, ok := out[q.URL].(string); ok && len(title) == 0 { // a bare link: its host is the title
+		if host, err := url.Parse(u); err == nil {
+			out[q.Title] = strings.TrimPrefix(host.Hostname(), "www.")
+		}
+	}
 	if date != nil {
 		out[q.Date] = dates.Format(*date, "")
 	}

@@ -22,6 +22,11 @@ import (
 // newServer runs the real plugins against a copy of examples/data.
 func newServer(t *testing.T) (*httptest.Server, *http.Client, string) {
 	t.Helper()
+	return newServerRO(t, false)
+}
+
+func newServerRO(t *testing.T, readOnly bool) (*httptest.Server, *http.Client, string) {
+	t.Helper()
 	root, _ := filepath.Abs("../..")
 	data := t.TempDir()
 	entries, _ := os.ReadDir(filepath.Join(root, "examples", "data"))
@@ -30,7 +35,7 @@ func newServer(t *testing.T) (*httptest.Server, *http.Client, string) {
 		os.WriteFile(filepath.Join(data, e.Name()), b, 0o644)
 	}
 	cfg := filepath.Join(t.TempDir(), "natlas.yml")
-	os.WriteFile(cfg, []byte("data_dir: "+data+"\nplugins: [events, subscriptions, calendar, health, inventory, architecture]\n"), 0o644)
+	os.WriteFile(cfg, []byte("data_dir: "+data+"\nplugins: [events, subscriptions, calendar, health, inventory, bookmarks, locations, architecture]\n"), 0o644)
 	s := &config.Settings{Username: "u", Password: "p", SecretKey: strings.Repeat("k", 32),
 		ConfigFile: cfg, PluginsDir: filepath.Join(root, "plugins")}
 	app, err := config.Load(s)
@@ -38,7 +43,7 @@ func newServer(t *testing.T) (*httptest.Server, *http.Client, string) {
 		t.Fatal(err)
 	}
 	mux := http.NewServeMux()
-	(&Server{App: app, Auth: auth.New(s)}).Register(mux)
+	(&Server{App: app, Auth: auth.New(s), LayoutFile: filepath.Join(t.TempDir(), "layout.yml"), ReadOnly: readOnly}).Register(mux)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	jar, _ := cookiejar.New(nil)
@@ -166,7 +171,7 @@ func TestFlow(t *testing.T) {
 
 	// dashboard
 	code, res = call(t, c, "GET", u+"/api/dashboard", nil)
-	if code != 200 || len(res["stats"].([]any)) != 6 {
+	if code != 200 || len(res["stats"].([]any)) != 8 {
 		t.Fatalf("dashboard: %d %v", code, res)
 	}
 	for _, st := range res["stats"].([]any) {

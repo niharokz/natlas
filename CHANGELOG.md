@@ -2,6 +2,17 @@
 
 Version numbers restarted at **1.0.0** on 2026-10-20. Earlier releases are listed as 0.x: the Python version is 0.1, and the Go releases first published as 2.0.0 – 3.1.1 are 0.2.0 – 0.6.1.
 
+## 1.0.1 - 2026-10-30
+
+- **Bookmarks and Locations.** Two new lists over `bookmark.md` and `location.md`, the files your launcher keeps. Bookmarks: tags with a filter, an open button on every row, and quick add from a pasted link (`https://… Name #tag #tag`). Locations: type, coordinates, radius, address and map link, opened in Google Maps. Natlas writes no `id:` into these files and keeps their one-line rows (`id_field: none`).
+- **Customize.** A new page (side menu, or More on phones) for the menu order, hiding lists, and the Today screen: add, remove, reorder and edit blocks (agenda sections, numbers of every list or one, a few rows of any list filtered by group or word, your own Markdown note). Saved in `layout.yml` next to `natlas.yml`; the same page works in the Android app (its own `layout.yml` in its config folder). Settings → Lists on Android now only turns lists on and off.
+- **Demo login.** `NATLAS_DEMO_USERNAME` / `NATLAS_DEMO_PASSWORD` add a read-only login over a fresh copy of the sample data, never your files. The start page shows it.
+- **Start page** is shorter, with the demo login and a download button for the Android APK.
+- **Releases on GitLab.** Pushing a tag `vX.Y.Z` tests, builds the signed APK on your own runner, and publishes a release with this changelog and the APK; the latest APK has a fixed link. Issue and merge request templates, README badges.
+- **Saving keeps your file's layout.** Lists written without indent stay unindented, and one-line rows stay one-line, so a save changes only the lines of the edited record.
+- Tag filters work on list fields (several tags per record). `link: { url: "{url}" }` opens a link field as it is; `quick_add: { url: … }` takes a pasted link.
+- The Docker image reads its version from `VERSION`; `android/build.sh` runs without a terminal (CI) and can read the keystore password from `natlas.env` next to the key.
+
 ## 1.0.0 - 2026-10-20
 
 - **Version 1.0.0.** Numbers restart here; earlier releases are now 0.2.0 – 0.6.1 (see the top of this file). The Android app installs over 3.1.1 as an update.

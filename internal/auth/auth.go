@@ -44,6 +44,7 @@ type Auth struct {
 	s        *config.Settings
 	key      []byte // signs short sessions
 	dkey     []byte // signs "until logout" sessions and the device mark (needs the device key)
+	xkey     []byte // signs demo sessions (read-only sample data)
 	cookie   string // session cookie name
 	device   string // device cookie name
 	bans     *Bans
@@ -64,7 +65,9 @@ func New(s *config.Settings) *Auth {
 	key := m.Sum(nil)
 	d := hmac.New(sha256.New, key)
 	d.Write([]byte("device\x00" + s.DeviceKey)) // a new device key signs out every remembered browser
-	a := &Auth{s: s, key: key, dkey: d.Sum(nil), cookie: "natlas_session", device: "natlas_device", failures: map[string][]time.Time{}}
+	x := hmac.New(sha256.New, []byte(s.SecretKey))
+	x.Write([]byte("natlas-demo-v1\x00" + s.DemoUsername + "\x00" + s.DemoPassword))
+	a := &Auth{s: s, key: key, dkey: d.Sum(nil), xkey: x.Sum(nil), cookie: "natlas_session", device: "natlas_device", failures: map[string][]time.Time{}}
 	if s.CookieSecure {
 		a.cookie, a.device = "__Host-natlas", "__Host-natlas-device"
 	}
@@ -94,6 +97,7 @@ type session struct {
 	user   string
 	exp    time.Time
 	device bool // signed in "until logout" (device key given on this browser)
+	demo   bool // the read-only demo login
 }
 
 func (a *Auth) session(r *http.Request) (session, bool) {
@@ -109,25 +113,40 @@ func (a *Auth) session(r *http.Request) (session, bool) {
 	if err != nil {
 		return session{}, false
 	}
-	parts := strings.Split(string(raw), "|") // user|expiry|kind
-	if len(parts) != 3 || (parts[2] != "s" && parts[2] != "d") {
+	parts := strings.Split(string(raw), "|") // user|expiry|kind (s short, d until logout, x demo)
+	if len(parts) != 3 {
 		return session{}, false
 	}
-	key := a.key
-	if parts[2] == "d" {
+	key, user := a.key, a.s.Username
+	switch parts[2] {
+	case "s":
+	case "d":
 		if a.s.DeviceKey == "" {
 			return session{}, false // device key removed from .env: only short sessions
 		}
 		key = a.dkey
+	case "x":
+		if !a.s.Demo() {
+			return session{}, false
+		}
+		key, user = a.xkey, a.s.DemoUsername
+	default:
+		return session{}, false
 	}
 	if !hmac.Equal([]byte(sig), []byte(sign(key, payload))) {
 		return session{}, false
 	}
 	expiry, err := strconv.ParseInt(parts[1], 10, 64)
-	if err != nil || time.Now().Unix() > expiry || parts[0] != a.s.Username {
+	if err != nil || time.Now().Unix() > expiry || parts[0] != user {
 		return session{}, false
 	}
-	return session{user: parts[0], exp: time.Unix(expiry, 0), device: parts[2] == "d"}, true
+	return session{user: parts[0], exp: time.Unix(expiry, 0), device: parts[2] == "d", demo: parts[2] == "x"}, true
+}
+
+// IsDemo is true for a request signed in with the demo login.
+func (a *Auth) IsDemo(r *http.Request) bool {
+	s, ok := a.session(r)
+	return ok && s.demo && !a.s.Local
 }
 
 // User returns the logged-in username, or "" when the request has no valid session.
@@ -181,15 +200,24 @@ func (a *Auth) Guard(next http.Handler) http.Handler {
 
 // setSession issues the session cookie: until logout with the device mark, else short.
 func (a *Auth) setSession(w http.ResponseWriter, device bool) {
-	kind, key, life := "s", a.key, time.Duration(a.s.SessionHours)*time.Hour
-	if life <= 0 {
-		life = 12 * time.Hour
-	}
 	if device {
-		kind, key, life = "d", a.dkey, deviceLife
+		a.issue(w, a.s.Username, "d", a.dkey, deviceLife)
+		return
 	}
+	a.issue(w, a.s.Username, "s", a.key, a.shortLife())
+}
+
+func (a *Auth) shortLife() time.Duration {
+	if a.s.SessionHours <= 0 {
+		return 12 * time.Hour
+	}
+	return time.Duration(a.s.SessionHours) * time.Hour
+}
+
+// issue writes a signed session cookie.
+func (a *Auth) issue(w http.ResponseWriter, user, kind string, key []byte, life time.Duration) {
 	exp := time.Now().Add(life)
-	payload := base64.RawURLEncoding.EncodeToString([]byte(a.s.Username + "|" + strconv.FormatInt(exp.Unix(), 10) + "|" + kind))
+	payload := base64.RawURLEncoding.EncodeToString([]byte(user + "|" + strconv.FormatInt(exp.Unix(), 10) + "|" + kind))
 	http.SetCookie(w, &http.Cookie{
 		Name: a.cookie, Value: payload + "." + sign(key, payload), Path: "/",
 		Expires: exp, HttpOnly: true, Secure: a.s.CookieSecure, SameSite: http.SameSiteLaxMode,
@@ -268,6 +296,11 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Bad request"})
 		return
 	}
+	if a.checkDemo(body.Username, body.Password) {
+		a.issue(w, a.s.DemoUsername, "x", a.xkey, a.shortLife())
+		writeJSON(w, http.StatusOK, map[string]any{"username": a.s.DemoUsername, "demo": true})
+		return
+	}
 	if !a.check(body.Username, body.Password) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": a.failed(ip, "username or password")})
 		return
@@ -289,6 +322,10 @@ func (a *Auth) Device(w http.ResponseWriter, r *http.Request) {
 		a.setDevice(w, false)
 		a.setSession(w, false)
 		writeJSON(w, http.StatusOK, map[string]bool{"remembered": false})
+		return
+	}
+	if a.IsDemo(r) {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Not for the demo login"})
 		return
 	}
 	ip := a.ClientIP(r)
@@ -327,6 +364,13 @@ func (a *Auth) check(user, password string) bool {
 	return userOK && passOK
 }
 
+// checkDemo is check for the demo login (public credentials, so no failure count).
+func (a *Auth) checkDemo(user, password string) bool {
+	return a.s.Demo() &&
+		subtle.ConstantTimeCompare([]byte(user), []byte(a.s.DemoUsername)) == 1 &&
+		subtle.ConstantTimeCompare([]byte(password), []byte(a.s.DemoPassword)) == 1
+}
+
 // Logout handles POST /api/logout.
 func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{Name: a.cookie, Value: "", Path: "/", MaxAge: -1,
@@ -339,7 +383,7 @@ func (a *Auth) Me(w http.ResponseWriter, r *http.Request) {
 	user := a.User(r)
 	sess, _ := a.session(r)
 	out := map[string]any{"authenticated": user != "", "username": user, "local": a.s.Local,
-		"remembered": sess.device, "device_key": a.s.DeviceKey != "", "session_hours": a.s.SessionHours}
+		"remembered": sess.device, "device_key": a.s.DeviceKey != "" && !sess.demo, "session_hours": a.s.SessionHours, "demo": sess.demo}
 	if user != "" && !a.s.Local {
 		out["expires"] = sess.exp.Format(time.RFC3339)
 	}

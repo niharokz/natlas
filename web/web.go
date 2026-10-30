@@ -28,7 +28,7 @@ var files embed.FS
 // Handler returns the static-site handler. Every asset URL carries a version
 // (a hash of the files), so browsers and the service worker pick up a new
 // release immediately after an update.
-func Handler(dir string, app *config.App, release string) (http.Handler, error) {
+func Handler(dir string, app *config.App, release string, demo Demo) (http.Handler, error) {
 	var root fs.FS = files
 	if dir != "" {
 		root = os.DirFS(dir)
@@ -50,6 +50,7 @@ func Handler(dir string, app *config.App, release string) (http.Handler, error) 
 			b = bytes.ReplaceAll(b, []byte("{{VERSION}}"), []byte(version))
 			b = bytes.ReplaceAll(b, []byte("{{TITLE}}"), []byte(html.EscapeString(app.Title)))
 			b = bytes.ReplaceAll(b, []byte("{{RELEASE}}"), []byte(html.EscapeString(release)))
+			b = bytes.ReplaceAll(b, []byte("{{DEMO}}"), []byte(demo.html()))
 			w.Header().Set("Cache-Control", "no-cache")
 			if strings.HasSuffix(name, ".js") {
 				w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
@@ -82,6 +83,17 @@ func Handler(dir string, app *config.App, release string) (http.Handler, error) 
 		assets.ServeHTTP(w, r)
 	}))
 	return mux, nil
+}
+
+// Demo is the read-only demo login shown on the landing page (empty = none).
+type Demo struct{ User, Password string }
+
+func (d Demo) html() string {
+	if d.User == "" {
+		return `<p class="muted">This is a private instance. Run your own copy in a few minutes (below).</p>`
+	}
+	return `<p class="demo">Try it: sign in as <code>` + html.EscapeString(d.User) + `</code> / <code>` +
+		html.EscapeString(d.Password) + `</code> - sample data, read-only.</p>`
 }
 
 // hashFS fingerprints every file so a new release changes the version.

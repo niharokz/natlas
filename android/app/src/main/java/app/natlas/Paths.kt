@@ -11,7 +11,7 @@ object Paths {
 
     // What the folder looks like: a short line for Settings.
     fun describe(names: List<String>): Pair<Boolean, String> {
-        val known = listOf("event.md", "subscription.md", "calendar.md", "health.md", "inventory.csv", "homelab.md")
+        val known = listOf("event.md", "subscription.md", "calendar.md", "health.md", "inventory.csv", "bookmark.md", "location.md", "homelab.md")
         val found = known.filter { it in names }
         return when {
             names.isEmpty() -> false to "The folder is empty or not readable."

@@ -28,12 +28,6 @@ body>.about{max-width:62rem;padding:1.25rem 1rem 4rem}
 .feat .card h2{margin:0 0 .35rem;font-size:1.02rem;letter-spacing:-.01em}
 .feat .card p{margin:0;color:var(--nss-muted);font-size:.92rem;line-height:1.55}
 
-.two{display:grid;gap:.75rem;grid-template-columns:minmax(0,1fr)}
-@media (min-width:760px){.two{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.two dl{display:grid;grid-template-columns:auto 1fr;gap:.3rem .8rem;margin:0;font-size:.88rem}
-.two dt{font:600 .78rem var(--nss-mono);color:var(--nss-ink);padding-top:.15rem}
-.two dd{margin:0;color:var(--nss-muted)}
-.two pre{margin:0}
 
 .table{overflow-x:auto}
 .table table{display:table;width:100%}
@@ -52,9 +46,6 @@ body>.about{max-width:62rem;padding:1.25rem 1rem 4rem}
 .steps pre{margin:.5rem 0 0}
 @media (max-width:480px){.steps>li{padding-left:1rem;padding-top:3.1rem}}
 
-.checks{list-style:none;padding:0;display:grid;gap:.4rem}
-.checks li{margin:0;padding-left:1.6rem;position:relative;color:var(--nss-muted)}
-.checks li::before{content:"✓";position:absolute;left:0;color:var(--nss-ok);font-weight:700}
 
 .about footer{margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--nss-line);color:var(--nss-muted);font-size:.85rem}
 .about footer a{color:inherit}
@@ -69,6 +60,6 @@ body>.about{max-width:62rem;padding:1.25rem 1rem 4rem}
 }
 /* grid children must be allowed to shrink, so long code lines scroll inside
    their block instead of widening the page */
-.steps>li,.two>*,.feat>*{min-width:0}
+.steps>li,.feat>*{min-width:0}
 .about pre{max-width:100%}
-@media (max-width:440px){.two dl{grid-template-columns:minmax(0,1fr)}.two dd{margin-bottom:.45rem}}
+.demo{display:inline-block;margin:.2rem 0 0;padding:.5rem .8rem;border-radius:10px;font-size:.92rem;background:color-mix(in srgb,var(--nss-accent) 12%,var(--nss-surface));border:1px solid color-mix(in srgb,var(--nss-accent) 35%,transparent)}

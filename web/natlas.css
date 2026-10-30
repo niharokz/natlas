@@ -79,12 +79,12 @@ button{font-size:.92rem}
   .shell{display:grid;grid-template-columns:15rem minmax(0,1fr)}
   .rail{display:flex;flex-direction:column;gap:.15rem;position:sticky;top:0;height:100dvh;padding:1.25rem .75rem;border-right:1px solid var(--nss-line);background:color-mix(in srgb,var(--nss-bg) 80%,transparent)}
   .rail .brand{padding:0 .6rem 1.2rem}
-  .rail>a,.rail-foot>button{display:flex;align-items:center;justify-content:flex-start;gap:.7rem;padding:.55rem .65rem;border-radius:8px;text-decoration:none;color:var(--nss-muted);font-weight:500}
-  .rail>a:hover{background:var(--nss-surface);color:var(--nss-fg)}
-  .rail>a[aria-current]{background:var(--nss-surface-2);color:var(--nss-fg)}
+  .rail>a,.rail-foot>a,.rail-foot>button{display:flex;align-items:center;justify-content:flex-start;gap:.7rem;padding:.55rem .65rem;border-radius:8px;text-decoration:none;color:var(--nss-muted);font-weight:500}
+  .rail>a:hover,.rail-foot>a:hover{background:var(--nss-surface);color:var(--nss-fg)}
+  .rail>a[aria-current],.rail-foot>a[aria-current]{background:var(--nss-surface-2);color:var(--nss-fg)}
   .rail>a[aria-current] .ico{color:var(--nss-ink)}
   .rail-foot{margin-top:auto;display:grid;gap:.15rem}
-  .rail-foot>button{width:100%;font-size:.85rem}
+  .rail-foot>button,.rail-foot>a{width:100%;font-size:.85rem}
   .bottom,.more-sheet,.backdrop{display:none!important}
   .main{padding-bottom:5rem}
 }
@@ -160,6 +160,7 @@ button{font-size:.92rem}
 .act{flex:none;min-height:2.2rem;padding:.3rem .7rem;border:1px solid color-mix(in srgb,var(--nss-accent) 60%,transparent);background:transparent;color:var(--nss-ink);border-radius:999px;font-size:.82rem;gap:.3rem}
 .act:hover{background:color-mix(in srgb,var(--nss-accent) 15%,transparent);filter:none}
 @media (max-width:479px){.row .act-label{display:none}.row .act{width:2.4rem;padding:0}}
+a.act{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;min-width:2.4rem;align-self:center}
 
 .fab{position:fixed;z-index:15;right:max(1rem,calc(50vw - 27rem + 1rem));bottom:calc(var(--bar-h) + var(--safe-b) + 1rem);width:3.4rem;height:3.4rem;padding:0;border-radius:50%;box-shadow:0 10px 24px -8px rgba(0,0,0,.55)}
 .fab .ico{width:1.5rem;height:1.5rem}
@@ -589,3 +590,20 @@ dialog.conflicts footer{display:flex;align-items:center;gap:.5rem;padding:.8rem 
 .no-motion .ring-fill,.no-motion .ch-bar{transition:none}
 
 .charts small{font-family:var(--nss-sans)}
+
+/* demo login: read-only sample data */
+.demo-bar{margin:.75rem 0 0;padding:.35rem .5rem .35rem .8rem;border-radius:8px;font-size:.88rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem;background:color-mix(in srgb,var(--nss-accent) 12%,var(--nss-surface));border:1px solid color-mix(in srgb,var(--nss-accent) 35%,transparent)}
+.demo-bar button{padding:.2rem .6rem;font-size:.85rem}
+
+/* Today blocks and Customize */
+.block + .block{margin-top:.4rem}
+.group h2 a{color:inherit;text-decoration:none}
+.note-block .md{font-size:.92rem}
+.set-list li.muted{opacity:.55}
+.set-list li.cz-block{display:block;padding:.15rem .4rem .15rem .2rem}
+.cz-row{display:flex;align-items:center;justify-content:space-between;gap:.4rem}
+.cz-name{flex:1;min-width:0;display:flex;align-items:center;gap:.5rem;justify-content:flex-start;text-align:left;padding:.45rem .5rem;border:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.cz-edit{padding:.1rem .6rem .6rem}
+.cz-checks{display:flex;flex-wrap:wrap;gap:.4rem 1rem;padding:.4rem 0}
+.cz-fields .set-field{margin:.45rem 0}
+.cz-save{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:.5rem 0 5rem}

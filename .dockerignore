@@ -10,3 +10,5 @@ android
 *.md
 # sample data and plugins are built into the binary (phone app demo, built-in plugins)
 !examples/data/*.md
+.gitlab
+.gitlab-ci.yml
