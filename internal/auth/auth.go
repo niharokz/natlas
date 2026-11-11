@@ -100,6 +100,7 @@ type session struct {
 	demo   bool // the read-only demo login
 }
 
+// session reads and verifies the session cookie.
 func (a *Auth) session(r *http.Request) (session, bool) {
 	c, err := r.Cookie(a.cookie)
 	if err != nil {
@@ -207,6 +208,7 @@ func (a *Auth) setSession(w http.ResponseWriter, device bool) {
 	a.issue(w, a.s.Username, "s", a.key, a.shortLife())
 }
 
+// shortLife is how long a login without the device key lasts.
 func (a *Auth) shortLife() time.Duration {
 	if a.s.SessionHours <= 0 {
 		return 12 * time.Hour
@@ -228,6 +230,7 @@ func (a *Auth) issue(w http.ResponseWriter, user, kind string, key []byte, life 
 // entered on this browser (the key itself never leaves the server).
 func (a *Auth) deviceMark() string { return sign(a.dkey, "device-mark|"+a.s.Username) }
 
+// hasDevice reports whether the browser holds a valid device mark.
 func (a *Auth) hasDevice(r *http.Request) bool {
 	if a.s.DeviceKey == "" {
 		return false
@@ -236,6 +239,7 @@ func (a *Auth) hasDevice(r *http.Request) bool {
 	return err == nil && hmac.Equal([]byte(c.Value), []byte(a.deviceMark()))
 }
 
+// setDevice sets (on) or clears the device-mark cookie.
 func (a *Auth) setDevice(w http.ResponseWriter, on bool) {
 	c := &http.Cookie{Name: a.device, Path: "/", HttpOnly: true, Secure: a.s.CookieSecure, SameSite: http.SameSiteStrictMode}
 	if on {
@@ -410,6 +414,7 @@ func (a *Auth) LocalEntry(w http.ResponseWriter, r *http.Request) {
 // Local reports whether this is the phone app.
 func (a *Auth) Local() bool { return a.s.Local }
 
+// sign is base64url(HMAC-SHA256(key, payload)).
 func sign(key []byte, payload string) string {
 	m := hmac.New(sha256.New, key)
 	m.Write([]byte(payload))
@@ -460,6 +465,7 @@ func (a *Auth) recent(ip string) []time.Time {
 	return kept
 }
 
+// lockedFor is how long ip must still wait (home addresses, 30 min lockout).
 func (a *Auth) lockedFor(ip string) time.Duration {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -470,6 +476,7 @@ func (a *Auth) lockedFor(ip string) time.Duration {
 	return time.Until(rec[len(rec)-a.bans.max].Add(lockout))
 }
 
+// fail counts a failure for ip and returns the failures in the window.
 func (a *Auth) fail(ip string) int {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -482,6 +489,7 @@ func (a *Auth) fail(ip string) int {
 	return a.bans.max - len(a.failures[ip])
 }
 
+// writeJSON sends v as JSON with the status.
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")

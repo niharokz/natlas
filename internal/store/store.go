@@ -101,6 +101,7 @@ func ForCollection(p *config.Plugin, c *config.Collection) *File {
 	return For(p)
 }
 
+// forPath returns the shared File for a path (one lock per path).
 func forPath(path, format string) *File {
 	filesMu.Lock()
 	defer filesMu.Unlock()

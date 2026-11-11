@@ -1,0 +1,150 @@
+        <!-- ───── PHONE SETTINGS (Android app only) ───── -->
+        <template x-if="route.view === 'phone' && phone">
+          <section class="view phone">
+            <header class="view-head"><h1>Settings</h1></header>
+
+            <div class="set-card">
+              <h2><span class="ico" x-html="icon('folder')"></span> Notes folder</h2>
+              <p class="set-path" x-text="phone.folder || 'No folder chosen'"></p>
+              <p class="set-state" :class="phone.folderOk ? 'ok' : 'bad'" x-text="phone.folderNote"></p>
+              <div class="set-row-btns">
+                <button class="ghost" @click="nativeCall('pickFolder')">Change folder</button>
+                <button class="ghost" x-show="!phone.fileAccess" @click="nativeCall('fileAccess')">Allow file access</button>
+                <button class="ghost" @click="nativeCall('demo')">Use sample data</button>
+              </div>
+            </div>
+
+            <div class="set-card">
+              <h2><span class="ico" x-html="icon('gear')"></span> Config folder</h2>
+              <p class="set-help">Where this app keeps its configuration: <code>settings.json</code> (these settings, saved on every change), and optionally <code>natlas.yml</code> and <code>plugins/</code> for the engine. Pick the same folder after a reinstall or on a new phone to get your settings back. The PIN is never written there.</p>
+              <p class="set-path" x-text="phone.configDir || 'Inside the app'"></p>
+              <p class="set-state" :class="phone.configDir ? 'ok' : ''" x-text="phone.configNote"></p>
+              <div class="set-row-btns">
+                <button class="ghost" @click="nativeCall('pickConfigFolder')" x-text="phone.configDir ? 'Change folder' : 'Choose folder'"></button>
+                <button class="ghost" x-show="phone.configDir" @click="setPhone('configDir', '')">Keep inside the app</button>
+              </div>
+            </div>
+
+            <div class="set-card">
+              <h2><span class="ico" x-html="icon('list')"></span> Lists</h2>
+              <p class="set-help">Which lists the app loads. Changing them restarts Natlas. Order and the Today screen: <a href="#/customize">Customize</a>.</p>
+              <ul class="set-list">
+                <template x-for="p in phone.plugins" :key="p.id">
+                  <li><label class="check"><input type="checkbox" role="switch" :checked="p.on" @change="phoneToggle(p.id)"> <span x-text="p.title"></span></label></li>
+                </template>
+              </ul>
+              <label class="set-field">Open the app on
+                <select :value="phone.start" @change="setPhone('start', $event.target.value)">
+                  <option value="#/today">Today</option>
+                  <template x-for="p in app.plugins" :key="p.id"><option :value="'#/p/' + p.id" x-text="p.title" :selected="phone.start === '#/p/' + p.id"></option></template>
+                </select>
+              </label>
+            </div>
+
+            <div class="set-card">
+              <h2><span class="ico" x-html="icon('lock')"></span> Security</h2>
+              <label class="set-field">App lock
+                <select :value="phone.lock" @change="setPhone('lock', $event.target.value)">
+                  <option value="off">Off</option>
+                  <option value="device" :disabled="!phone.deviceSecure">Fingerprint or phone screen lock</option>
+                  <option value="pin">Natlas PIN</option>
+                </select>
+              </label>
+              <p class="set-help" x-show="!phone.deviceSecure">Set a screen lock on the phone to use fingerprint unlock.</p>
+              <template x-if="phone.lock === 'pin'">
+                <div>
+                  <div class="set-row-btns"><button class="ghost" @click="nativeCall('choosePin')" x-text="phone.hasPin ? 'Change PIN' : 'Set PIN'"></button></div>
+                  <label class="check set-check" x-show="phone.biometric"><input type="checkbox" role="switch" :checked="phone.pinBio" @change="setPhone('pinBio', $event.target.checked)"> <span>Fingerprint too</span></label>
+                </div>
+              </template>
+              <label class="set-field" x-show="phone.lock !== 'off'">Lock again after
+                <select :value="String(phone.delay)" @change="setPhone('delay', $event.target.value)">
+                  <option value="0">Immediately</option><option value="60">1 minute</option><option value="300">5 minutes</option>
+                  <option value="900">15 minutes</option><option value="-1">Only after a restart</option>
+                </select>
+              </label>
+              <label class="check set-check"><input type="checkbox" role="switch" :checked="phone.secure" @change="setPhone('secure', $event.target.checked)"> <span>Hide content in recent apps and screenshots</span></label>
+              <div class="set-row-btns" x-show="phone.lock !== 'off'"><button class="ghost" @click="nativeCall('lockNow')">Lock now</button></div>
+            </div>
+
+            <div class="set-card">
+              <h2><span class="ico" x-html="icon('sun')"></span> Look</h2>
+              <label class="set-field">Theme
+                <select :value="theme" @change="theme = $event.target.value; _setPref('natlas_theme', theme); applyTheme(); $nextTick(() => redrawDiagrams())">
+                  <option value="auto">Follow the phone</option><option value="dark">Dark</option><option value="light">Light</option>
+                </select>
+              </label>
+              <label class="check set-check"><input type="checkbox" role="switch" :checked="motionOn()" @change="setMotion($event.target.checked)"> <span>Animations</span></label>
+            </div>
+
+            <div class="set-card">
+              <h2><span class="ico" x-html="icon('grid')"></span> Widgets</h2>
+              <p class="set-help">Long-press the home screen → Widgets → Natlas. Every widget can be resized; List, Number, Glance and Quick add ask which list or number to show.</p>
+              <label class="set-field">Style
+                <select :value="phone.widgets.theme" @change="setPhone('widgetTheme', $event.target.value)">
+                  <option value="auto">Follow the phone</option><option value="light">Light</option><option value="dark">Dark</option>
+                  <option value="amoled">AMOLED black</option><option value="glass">Glass</option><option value="clear">Clear (no background)</option>
+                </select>
+              </label>
+              <label class="set-field">Background opacity <small x-text="phone.widgets.opacity + '%'"></small>
+                <input type="range" min="0" max="100" step="5" :value="phone.widgets.opacity" @change="setPhone('widgetOpacity', $event.target.value)">
+              </label>
+              <label class="set-field">Accent colour
+                <select :value="phone.widgets.accent" @change="setPhone('widgetAccent', $event.target.value)">
+                  <option value="teal">Natlas teal</option><option value="dynamic">Phone colours (Material You)</option>
+                </select>
+              </label>
+              <label class="check set-check"><input type="checkbox" role="switch" :checked="phone.widgets.privacy" @change="setPhone('widgetPrivacy', $event.target.checked)"> <span>Hide titles on widgets</span></label>
+              <div class="set-row-btns"><button class="ghost" @click="nativeCall('refreshWidgets')">Refresh widgets now</button></div>
+              <p class="set-help" x-text="phone.widgets.last ? 'Last refresh: ' + phone.widgets.last : ''"></p>
+            </div>
+
+            <div class="set-card" x-show="phone.health">
+              <h2><span class="ico" x-html="icon('heart')"></span> Health</h2>
+              <template x-if="!phone.health?.supported"><p class="set-help">Health Connect needs Android 14 or newer.</p></template>
+              <template x-if="phone.health?.supported">
+                <div>
+                  <p class="set-help">Reads Samsung Health (and anything else that shares into Health Connect) into Health → Daily in health.md: steps, sleep, heart, weight and more. Read only; nothing leaves the phone except through your Syncthing folder.</p>
+                  <p class="set-state" :class="phone.health.granted ? 'ok' : 'bad'"
+                     x-text="phone.health.granted ? phone.health.granted + ' of ' + phone.health.total + ' data types allowed' + (phone.health.history ? ' · past data' : '') + (phone.health.background ? ' · in the background' : '') : 'No access to Health Connect yet'"></p>
+                  <div class="set-row-btns">
+                    <button :class="phone.health.granted ? 'ghost' : 'primary'" @click="nativeCall('healthGrant')" x-text="phone.health.granted ? 'Allow more' : 'Allow access'"></button>
+                    <button class="ghost" x-show="phone.health.granted" @click="nativeCall('healthManage')">Health Connect settings</button>
+                  </div>
+                  <p class="set-help" x-show="phone.health.granted && !phone.health.background">Allow "Access data in the background" so the morning sync runs with the app closed; otherwise it runs when you next open Natlas.</p>
+                  <label class="check set-check"><input type="checkbox" role="switch" :checked="phone.health.on" @change="setPhone('healthOn', $event.target.checked)"> <span>Sync every morning</span></label>
+                  <label class="set-field" x-show="phone.health.on">At
+                    <input type="time" :value="phone.health.time" @change="$event.target.value && setPhone('healthTime', $event.target.value)">
+                  </label>
+                  <p class="set-help" x-show="phone.health.on">Writes the last 3 days and last night's sleep, and copies the newest weight and body fat to the profile.</p>
+                  <div class="set-row-btns" x-show="phone.health.granted">
+                    <button class="ghost" :disabled="phone.health.running" @click="nativeCall('healthSyncNow')">Sync now</button>
+                    <button class="ghost" :disabled="phone.health.running" @click="nativeCall('healthImport')" x-text="phone.health.imported ? 'Import history again' : 'Import all history'"></button>
+                  </div>
+                  <p class="set-help" x-show="phone.health.sources" x-text="'Steps by source: ' + phone.health.sources + '. Each minute is counted once, from the source with the most steps, so a walk seen by the phone and the band is not added twice.'"></p>
+                  <p class="set-help" x-show="healthProgress && phone.health.running" x-text="healthProgress"></p>
+                  <p class="set-help" x-show="phone.health.note && !phone.health.running" x-text="phone.health.note + (phone.health.last ? ' · ' + phone.health.last : '')"></p>
+                </div>
+              </template>
+            </div>
+
+            <div class="set-card">
+              <h2><span class="ico" x-html="icon('sync')"></span> Sync</h2>
+              <label class="check set-check"><input type="checkbox" role="switch" :checked="phone.main" @change="setPhone('main', $event.target.checked)"> <span>This phone merges sync conflicts</span></label>
+              <p class="set-help">Leave off when your server runs Natlas: it merges Syncthing conflict copies record by record within seconds. Turn on only if you use Natlas without the server.</p>
+              <p class="set-help" x-text="conflicts.copies ? conflicts.copies + ' conflict cop' + (conflicts.copies === 1 ? 'y' : 'ies') + ' waiting to be merged.' : 'No conflict copies.'"></p>
+              <div class="set-row-btns" x-show="conflicts.list.length"><button class="ghost" @click="openConflicts()" x-text="'Resolve ' + conflicts.list.length + ' record' + (conflicts.list.length === 1 ? '' : 's')"></button></div>
+            </div>
+
+            <div class="set-card">
+              <h2><span class="ico" x-html="icon('info')"></span> About</h2>
+              <p class="set-help" x-text="'Natlas ' + phone.version + ' · engine ' + phone.engine"></p>
+              <div class="set-row-btns">
+                <button class="ghost" @click="showLog()">View log</button>
+                <button class="ghost" @click="nativeCall('restartEngine')">Restart engine</button>
+                <button class="ghost" @click="nativeCall('appInfo')">App info</button>
+              </div>
+              <pre class="set-log" x-show="phoneLog" x-text="phoneLog"></pre>
+            </div>
+          </section>
+        </template>

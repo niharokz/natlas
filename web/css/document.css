@@ -1,0 +1,94 @@
+/* document.css — `view: document`: contents, rendered Markdown, callouts, Mermaid, the Markdown editor.
+   App layer on top of nss (vendor/nss.min.css): only nss tokens (--nss-*), mobile first,
+   side rail from 900px. Loaded in the order of index.html. */
+
+/* ── document (view: document) ── */
+.doc{display:block}
+.doc-toc{display:none}
+.doc-toc-title{margin:0 0 .4rem;font:600 .7rem var(--nss-mono);text-transform:uppercase;letter-spacing:.14em;color:var(--nss-muted)}
+.doc-toc nav{display:flex;flex-direction:column;gap:1px}
+.doc-toc nav a{display:flex;gap:.55rem;padding:.38rem .55rem;border-radius:8px;text-decoration:none;color:var(--nss-muted);font-size:.88rem;line-height:1.35}
+.doc-toc nav a:hover{background:var(--nss-surface-2);color:var(--nss-fg)}
+.doc-toc nav a.on{background:var(--nss-surface-2);color:var(--nss-fg);font-weight:600;box-shadow:inset 2px 0 0 var(--nss-accent)}
+.doc-toc .n{flex:none;min-width:1.4rem;font:600 .75rem/1.6 var(--nss-mono);color:var(--nss-ink)}
+.doc-add{margin-top:.6rem;width:100%;justify-content:flex-start;color:var(--nss-muted);font-size:.85rem}
+/* phone: a sticky "contents" bar opens the list as a drawer */
+.doc-toc-bar{position:sticky;top:0;z-index:12;margin:0 -1rem .8rem;padding:.4rem 1rem;
+  background:color-mix(in srgb,var(--nss-bg) 90%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--nss-line)}
+.doc-toc-bar button{width:100%;justify-content:flex-start;gap:.6rem;font-weight:600;overflow:hidden;white-space:nowrap}
+.doc-toc-bar button span:last-child{overflow:hidden;text-overflow:ellipsis}
+.doc-toc.open{display:block;position:fixed;z-index:32;inset:0 auto 0 0;width:min(20rem,86vw);overflow-y:auto;
+  padding:1rem .8rem calc(1rem + var(--safe-b));background:var(--nss-surface);border-right:1px solid var(--nss-line);box-shadow:0 0 40px rgba(0,0,0,.35)}
+.doc-scrim{z-index:31}
+@media (min-width:1100px){
+  .doc{display:grid;grid-template-columns:15rem minmax(0,1fr);gap:2rem;align-items:start}
+  .doc-toc,.doc-toc.open{display:block;position:sticky;top:1rem;inset:auto;width:auto;max-height:calc(100dvh - 2rem);overflow-y:auto;
+    padding:0 0 1rem;background:none;border:0;box-shadow:none;z-index:auto}
+  .doc-toc-bar,.doc-scrim{display:none!important}
+}
+
+.doc-main{min-width:0;max-width:62rem}
+.doc-hero{margin:0 0 2.2rem;padding:1.2rem 1.3rem;border:1px solid var(--nss-line);border-radius:var(--nss-radius);
+  background:linear-gradient(135deg,color-mix(in srgb,var(--nss-accent) 10%,var(--nss-surface)),var(--nss-surface) 60%)}
+.doc-hero-head{display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem}
+.doc-title{display:flex;align-items:center;gap:.6rem;margin:0;font:700 1.35rem var(--nss-mono)}
+.doc-dot{width:.7rem;height:.7rem;border-radius:50%;background:var(--nss-accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--nss-accent) 22%,transparent)}
+.doc-sub{margin:.1rem 0 .7rem 1.3rem;color:var(--nss-muted);font:.82rem var(--nss-mono)}
+.doc-meta{display:flex;flex-wrap:wrap;gap:.4rem;margin:.8rem 0 0}
+.doc-meta span{padding:.15rem .65rem;border:1px solid var(--nss-line);border-radius:999px;background:var(--nss-surface-2);font:.72rem var(--nss-mono);color:var(--nss-muted)}
+
+.doc-sec{margin:0 0 2.6rem;scroll-margin-top:4rem}
+.doc-sec>header{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:0 0 .7rem;padding-bottom:.45rem;border-bottom:1px solid var(--nss-line)}
+.doc-sec h2{display:flex;align-items:baseline;gap:.7rem;margin:0;font:700 1.2rem var(--nss-mono);letter-spacing:-.02em}
+.doc-sec h2 .num{color:var(--nss-ink);font-size:.95rem}
+.doc-sec-acts{display:flex;gap:.1rem;flex:none}
+.doc-sec-acts .icon-only{width:2.2rem;height:2.2rem;color:var(--nss-muted)}
+@media (hover:hover){.doc-sec-acts{opacity:0;transition:opacity .15s}.doc-sec:hover .doc-sec-acts,.doc-sec-acts:focus-within{opacity:1}}
+
+/* rendered Markdown */
+.md{font-size:.95rem;line-height:1.65;overflow-wrap:anywhere}
+.md>:first-child{margin-top:0}
+.md>:last-child{margin-bottom:0}
+.md h1,.md h2,.md h3,.md h4{margin:1.6em 0 .55em;font-family:var(--nss-mono)}
+.md h3{font-size:1.02rem}
+.md h4{font-size:.92rem}
+.md p,.md ul,.md ol,.md pre,.md blockquote{margin:0 0 1em}
+.md ul ul,.md ol ol,.md ul ol,.md ol ul{margin:.25em 0 0}
+.md li>p{margin:0 0 .4em}
+.md img{max-width:100%;border-radius:8px}
+.md pre{margin-inline:0;border:1px solid var(--nss-line);border-radius:var(--nss-radius);font-size:.8rem}
+.md .table-wrap{overflow-x:auto;margin:0 0 1.1em;border:1px solid var(--nss-line);border-radius:var(--nss-radius);background:var(--nss-surface)}
+.md .table-wrap table{display:table;width:100%;margin:0;border:0;border-radius:0;font-size:.85rem}
+.md td,.md th{overflow-wrap:normal;word-break:normal}
+.md td code{white-space:nowrap}
+.mermaid-box svg[aria-roledescription=pie]{max-width:min(100%,34rem)}
+.md input[type=checkbox]{margin-right:.4rem;vertical-align:-.15em}
+.md hr{margin:1.8rem 0}
+/* callouts: > [!note] / [!tip] / [!warning] / [!danger] / [!info] */
+.callout{margin:0 0 1em;padding:.75rem 1rem;border:1px solid var(--nss-line);border-left:3px solid var(--nss-muted);border-radius:0 10px 10px 0;background:var(--nss-surface)}
+.callout>:last-child{margin-bottom:0}
+.callout-title{margin:0 0 .3em;font:600 .82rem var(--nss-mono);color:var(--nss-fg)}
+.callout.accent{border-left-color:var(--nss-accent);background:color-mix(in srgb,var(--nss-accent) 9%,var(--nss-surface))}
+.callout.accent .callout-title{color:var(--nss-ink)}
+.callout.ok{border-left-color:var(--nss-ok);background:color-mix(in srgb,var(--nss-ok) 9%,var(--nss-surface))}
+.callout.ok .callout-title{color:var(--nss-ok)}
+.callout.warn{border-left-color:var(--nss-warn);background:color-mix(in srgb,var(--nss-warn) 10%,var(--nss-surface))}
+.callout.warn .callout-title{color:var(--nss-warn)}
+.callout.bad{border-left-color:var(--nss-bad);background:color-mix(in srgb,var(--nss-bad) 9%,var(--nss-surface))}
+.callout.bad .callout-title{color:var(--nss-bad)}
+/* mermaid diagrams */
+.mermaid-box{margin:0 0 1.1em;padding:1rem;overflow-x:auto;border:1px solid var(--nss-line);border-radius:var(--nss-radius);background:var(--nss-surface);text-align:center;min-height:3rem}
+.mermaid-box svg{max-width:100%;height:auto}
+.mermaid-box:not(:has(svg)):not(.failed){color:transparent;background:linear-gradient(90deg,var(--nss-surface),var(--nss-surface-2),var(--nss-surface)) 0 0/300% 100%;animation:nss-slide 1.4s linear infinite}
+.mermaid-box.failed{white-space:pre-wrap;text-align:left;font:.78rem var(--nss-mono);color:var(--nss-bad)}
+
+/* markdown editor in the sheet */
+@media (min-width:700px){dialog.sheet.wide{width:min(56rem,92vw)}}
+.md-edit{display:grid;gap:.4rem;grid-column:1/-1}
+.md-edit-head{display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:.85rem}
+.md-tabs{display:inline-flex;padding:2px;border:1px solid var(--nss-line);border-radius:999px;background:var(--nss-surface)}
+.md-tabs button{min-height:1.9rem;padding:.1rem .8rem;border:0;border-radius:999px;background:none;color:var(--nss-muted);font:500 .8rem var(--nss-sans);filter:none}
+.md-tabs button.on{background:var(--nss-accent);color:var(--nss-on-accent)}
+.md-edit textarea{min-height:22rem;font:.85rem/1.55 var(--nss-mono);tab-size:2}
+.md-preview{min-height:22rem;padding:.8rem 1rem;border:1px solid var(--nss-line);border-radius:8px;background:var(--nss-bg)}
+

@@ -10,6 +10,7 @@ import (
 	"natlas/internal/store"
 )
 
+// fieldDiff is one field that differs between the file and the conflict copy.
 type fieldDiff struct {
 	Key   string `json:"key"`
 	Label string `json:"label"`
@@ -18,6 +19,7 @@ type fieldDiff struct {
 	Same  bool   `json:"same"`
 }
 
+// conflictOut is one queued sync conflict for the Today card.
 type conflictOut struct {
 	merge.Conflict
 	PluginTitle string      `json:"plugin_title"`

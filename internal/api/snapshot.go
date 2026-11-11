@@ -196,6 +196,7 @@ func (s *Server) Snapshot(now time.Time) map[string]any {
 	return snap
 }
 
+// syncSource names who writes a read-only collection (for the widget footer).
 func syncSource(c *config.Collection) string {
 	if c.Sync == nil {
 		return ""
@@ -203,6 +204,7 @@ func syncSource(c *config.Collection) string {
 	return c.Sync.Source
 }
 
+// quickHint is the quick-add placeholder of a collection.
 func quickHint(c *config.Collection) string {
 	if c.QuickAdd == nil {
 		return ""
@@ -210,6 +212,7 @@ func quickHint(c *config.Collection) string {
 	return c.QuickAdd.Hint
 }
 
+// whenText is the short date/time label of an agenda item.
 func whenText(it map[string]any) string {
 	if d, ok := it["days"].(float64); ok {
 		return relDays(int(d))
@@ -275,6 +278,7 @@ func listEntry(app *config.App, p *config.Plugin, c *config.Collection, recs []a
 		"readonly": c.ReadOnly, "quick": c.QuickAdd != nil && !c.ReadOnly, "groups": groups}
 }
 
+// cap50 keeps the first 50 items.
 func cap50(items []map[string]any) []map[string]any {
 	if len(items) > 50 {
 		return items[:50]
@@ -282,6 +286,7 @@ func cap50(items []map[string]any) []map[string]any {
 	return items
 }
 
+// containsAny reports whether list holds s.
 func containsAny(list []any, s string) bool {
 	for _, v := range list {
 		if v == s {
@@ -291,6 +296,7 @@ func containsAny(list []any, s string) bool {
 	return false
 }
 
+// orDash is s, or "-" when empty.
 func orDash(s string) string {
 	if s == "" {
 		return "(untitled)"

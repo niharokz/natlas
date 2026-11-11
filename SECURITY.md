@@ -26,7 +26,7 @@ data folder.
 ## Your part
 
 - Use a long passphrase and store it as `NATLAS_PASSWORD_HASH`.
-- Keep `.env` and `natlas.yml` out of git (`.gitignore` does this). A shared
+- Keep `.env` and `config/` (natlas.yml, layout.yml, bans.yml) out of git (`.gitignore` does this). A shared
   `.env` is fine: `docker-compose.yml` passes only the `NATLAS_*` variables and
   `TZ` into the container, never the rest of the file.
 - Serve Natlas only over HTTPS, behind a proxy you control.

@@ -121,6 +121,7 @@ func applyLatest(doc store.Doc, c, target *config.Collection, l *config.Latest) 
 	return len(set), nil
 }
 
+// onlyToday reports whether a latest template uses only {today…} (no data field).
 func onlyToday(tmpl string) bool {
 	keys := config.TemplateKeys(tmpl)
 	for _, k := range keys {

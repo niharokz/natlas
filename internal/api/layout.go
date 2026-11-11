@@ -37,6 +37,7 @@ type Block struct {
 
 var agendaSections = []string{"overdue", "today", "upcoming"}
 
+// defaultHome is the Today screen without a layout.yml: agenda, then numbers.
 func defaultHome() []Block { return []Block{{Type: "agenda"}, {Type: "glance"}} }
 
 // layout reads layout.yml and fits it to the loaded plugins: new plugins join
@@ -51,6 +52,7 @@ func (s *Server) layout() Layout {
 	return s.fit(l, l.Home == nil)
 }
 
+// fit fits a layout to the loaded plugins (defaults: use defaultHome when it has none).
 func (s *Server) fit(l Layout, defaults bool) Layout {
 	ids := make([]string, 0, len(s.App.Loaded))
 	for _, p := range s.App.Loaded {
@@ -120,6 +122,7 @@ func (s *Server) validBlock(b *Block) error {
 	return nil
 }
 
+// plugin returns a loaded plugin by id, or nil.
 func (s *Server) plugin(id string) *config.Plugin {
 	for _, p := range s.App.Loaded {
 		if p.ID == id {
@@ -129,6 +132,7 @@ func (s *Server) plugin(id string) *config.Plugin {
 	return nil
 }
 
+// getLayout handles GET /api/layout.
 func (s *Server) getLayout(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.layout())
 }

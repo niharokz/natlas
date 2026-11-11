@@ -127,6 +127,7 @@ func LoadSettings() (*Settings, error) {
 	return s, nil
 }
 
+// envOr is the variable, or fallback when empty.
 func envOr(key, fallback string) string {
 	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
 		return v
@@ -134,6 +135,7 @@ func envOr(key, fallback string) string {
 	return fallback
 }
 
+// envInt is the variable as an int, or fallback.
 func envInt(key string, fallback int) int {
 	if v, err := strconv.Atoi(strings.TrimSpace(os.Getenv(key))); err == nil {
 		return v
@@ -141,6 +143,7 @@ func envInt(key string, fallback int) int {
 	return fallback
 }
 
+// envBool is the variable as a bool (1/true/yes, 0/false/no), or fallback.
 func envBool(key string, fallback bool) bool {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv(key))) {
 	case "1", "true", "yes", "on":
@@ -272,6 +275,7 @@ func decodeFile(path string, into any) error {
 	return decodeBytes(path, data, into)
 }
 
+// decodeBytes decodes YAML strictly (unknown keys are errors).
 func decodeBytes(name string, data []byte, into any) error {
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)

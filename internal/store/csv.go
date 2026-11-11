@@ -22,6 +22,7 @@ type csvDoc struct {
 	crlf   bool // keep the file's line endings (Python's csv module writes \r\n)
 }
 
+// parseCSV reads a CSV file, keeping each row's raw cells.
 func parseCSV(path string, data []byte) (*csvDoc, error) {
 	d := &csvDoc{path: path, crlf: bytes.Contains(data, []byte("\r\n"))}
 	data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf")) // Excel's BOM
@@ -51,6 +52,7 @@ func parseCSV(path string, data []byte) (*csvDoc, error) {
 	return d, nil
 }
 
+// col is the column index of name, or -1.
 func (d *csvDoc) col(name string) int {
 	for i, h := range d.header {
 		if h == name {
@@ -79,6 +81,7 @@ func (d *csvDoc) ensureCol(name string, front bool) int {
 	return len(d.header) - 1
 }
 
+// toRecord turns a row into a record using the field types.
 func (d *csvDoc) toRecord(c *config.Collection, row []string) Record {
 	rec := Record{}
 	for i, h := range d.header {
@@ -120,6 +123,7 @@ func fromCell(f *config.Field, cell string) any {
 	return cell
 }
 
+// toCell writes a value as a CSV cell (lists joined with |).
 func toCell(v any) string {
 	switch x := v.(type) {
 	case nil:

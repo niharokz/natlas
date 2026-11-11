@@ -1,0 +1,18 @@
+  <!-- ═════════ LOGIN ═════════ -->
+  <template x-if="ready && !authed">
+    <main class="login">
+      <form @submit.prevent="login()">
+        <p class="brand">~/natlas<span>_</span></p>
+        <label>Username
+          <input x-model="loginForm.username" autocomplete="username" autocapitalize="off" required>
+        </label>
+        <label>Password
+          <input type="password" x-model="loginForm.password" autocomplete="current-password" required>
+        </label>
+        <p class="error" x-show="loginError" x-text="loginError"></p>
+        <button :disabled="busy" x-text="busy ? 'Signing in…' : 'Sign in'"></button>
+        {{DEMO}}
+        <p class="login-foot"><a href="/">← About Natlas</a></p>
+      </form>
+    </main>
+  </template>

@@ -1,14 +1,17 @@
+# The server image needs only go.mod, VERSION, vendor/, cmd/, internal/, web/, plugins/, examples/.
 .env
-natlas.yml
 .private-words
 HOMELAB.md
 .git
+.gitlab
+.gitlab-ci.yml
+config
 data
+dist
+docker
 scripts
 patch
 android
 *.md
-# sample data and plugins are built into the binary (phone app demo, built-in plugins)
+# sample data is built into the binary (demo login, phone app)
 !examples/data/*.md
-.gitlab
-.gitlab-ci.yml

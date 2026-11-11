@@ -1,0 +1,82 @@
+      <!-- ask dialog (actions that need input, e.g. "Completed" asks for time and cost) -->
+      <dialog class="ask" x-ref="ask" @close="ask.open = false">
+        <template x-if="ask.open">
+          <form @submit.prevent="submitAsk()" novalidate>
+            <h2 x-text="(ask.action?.label || '') + ': ' + ask.title"></h2>
+            <template x-for="f in ask.fields" :key="f.key">
+              <label>
+                <span x-text="f.label"></span>
+                <template x-if="f.type === 'select' && !f.allow_new">
+                  <select x-model="ask.values[f.key]">
+                    <option value="">—</option>
+                    <template x-for="o in (f.options || [])" :key="o"><option :value="o" x-text="o"></option></template>
+                  </select>
+                </template>
+                <template x-if="!(f.type === 'select' && !f.allow_new)">
+                  <input :type="inputType(f)" x-model="ask.values[f.key]" :placeholder="f.placeholder || ''"
+                         :inputmode="['number','money'].includes(f.type) ? 'decimal' : null">
+                </template>
+                <small class="field-error" x-show="ask.errors[f.key]" x-text="ask.errors[f.key]"></small>
+              </label>
+            </template>
+            <p class="error" x-show="ask.error" x-text="ask.error"></p>
+            <footer>
+              <button type="submit" class="primary" :disabled="ask.saving" x-text="ask.action?.label"></button>
+              <button type="button" class="ghost" @click="$refs.ask.close()">Cancel</button>
+            </footer>
+          </form>
+        </template>
+      </dialog>
+
+
+      <!-- this device: the device key keeps this browser signed in until logout -->
+      <dialog class="ask" x-ref="device" @close="device.open = false">
+        <template x-if="device.open">
+          <form @submit.prevent="saveDevice()" novalidate>
+            <h2>This device</h2>
+            <p class="set-help" x-show="device.remembered">This browser stays signed in until you log out, also after the next login. Changing <code>NATLAS_DEVICE_KEY</code> on the server signs it out.</p>
+            <p class="set-help" x-show="!device.remembered" x-text="'Without the device key a login lasts ' + device.hours + ' hours. Enter the key from NATLAS_DEVICE_KEY in .env to stay signed in on this browser until you log out.'"></p>
+            <label x-show="!device.remembered"><span>Device key</span>
+              <input type="password" x-model="device.key" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="paste the key">
+            </label>
+            <p class="error" x-show="device.error" x-text="device.error"></p>
+            <footer>
+              <button type="submit" class="primary" x-show="!device.remembered" :disabled="device.busy || !device.key.trim()">Remember this device</button>
+              <button type="button" class="danger" x-show="device.remembered" :disabled="device.busy" @click="forgetDevice()">Forget this device</button>
+              <button type="button" class="ghost" @click="$refs.device.close()">Close</button>
+            </footer>
+          </form>
+        </template>
+      </dialog>
+
+      <!-- sync conflicts: pick a version per record -->
+      <dialog class="sheet conflicts" x-ref="conflicts" @close="conflicts.open = false">
+        <template x-if="conflicts.open && curConflict()">
+          <div class="conf">
+            <header>
+              <h2 x-text="(curConflict().title || curConflict().record)"></h2>
+              <button type="button" class="ghost icon-only" @click="$refs.conflicts.close()" title="Close"><span class="ico" x-html="icon('x')"></span></button>
+            </header>
+            <div class="conf-body">
+              <p class="note" x-text="curConflict().plugin_title + ' · ' + curConflict().label + ' · ' + curConflict().file + ' — ' + (conflicts.i + 1) + ' of ' + conflicts.list.length"></p>
+              <p class="set-help">Two devices changed this record before Syncthing could pass the change on. The file keeps the first version until you choose.</p>
+              <table class="conf-table">
+                <thead><tr><th></th><th>In the file now</th><th>Other device</th></tr></thead>
+                <tbody>
+                  <template x-for="f in curConflict().fields" :key="f.key">
+                    <tr :class="{diff: !f.same}"><th x-text="f.label"></th><td x-text="f.kept || '—'"></td><td x-text="f.other || '—'"></td></tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <footer>
+              <button class="primary" :disabled="conflicts.busy || offline" @click="resolveConflict('kept')">Keep this</button>
+              <button :disabled="conflicts.busy || offline" @click="resolveConflict('other')">Use other</button>
+              <span class="conf-nav" x-show="conflicts.list.length > 1">
+                <button class="ghost icon-only" :disabled="conflicts.i === 0" @click="conflicts.i--" title="Previous"><span class="ico" x-html="icon('left')"></span></button>
+                <button class="ghost icon-only" :disabled="conflicts.i >= conflicts.list.length - 1" @click="conflicts.i++" title="Next"><span class="ico" x-html="icon('right')"></span></button>
+              </span>
+            </footer>
+          </div>
+        </template>
+      </dialog>

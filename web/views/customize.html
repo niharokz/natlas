@@ -1,0 +1,103 @@
+        <!-- ───── CUSTOMIZE: menu order, hidden lists, Today blocks (layout.yml) ───── -->
+        <template x-if="route.view === 'customize' && cz">
+          <section class="view phone customize">
+            <header class="view-head"><h1>Customize</h1></header>
+            <p class="note" x-show="demo">The demo shows the default layout; saving is off.</p>
+
+            <div class="set-card">
+              <h2><span class="ico" x-html="icon('list')"></span> Menu</h2>
+              <p class="set-help">Order of the lists. Hidden lists stay reachable by link and on Today.</p>
+              <ul class="set-list">
+                <template x-for="(id, i) in cz.menu" :key="id">
+                  <li :class="{muted: cz.hidden.includes(id)}">
+                    <label class="check"><input type="checkbox" role="switch" :checked="!cz.hidden.includes(id)" @change="czToggle(id)">
+                      <span class="ico dim" x-html="icon(plugin(id)?.icon)"></span> <span x-text="plugin(id)?.title"></span></label>
+                    <span class="set-move">
+                      <button class="ghost icon-only" :disabled="i === 0" @click="czMove(cz.menu, i, -1)" title="Move up">↑</button>
+                      <button class="ghost icon-only" :disabled="i === cz.menu.length - 1" @click="czMove(cz.menu, i, 1)" title="Move down">↓</button>
+                    </span>
+                  </li>
+                </template>
+              </ul>
+            </div>
+
+            <div class="set-card">
+              <h2><span class="ico" x-html="icon('home')"></span> Today screen</h2>
+              <p class="set-help">Blocks from top to bottom. Tap a block to change it.</p>
+              <ul class="set-list blocks">
+                <template x-for="(b, i) in cz.home" :key="i">
+                  <li class="cz-block" :class="{open: cz.open === i}">
+                    <div class="cz-row">
+                      <button class="ghost cz-name" @click="cz.open = cz.open === i ? -1 : i">
+                        <span class="ico dim" x-html="icon({agenda: 'calendar', glance: 'grid', list: 'list', note: 'edit'}[b.type])"></span>
+                        <span x-text="blockTitle(b)"></span>
+                      </button>
+                      <span class="set-move">
+                        <button class="ghost icon-only" :disabled="i === 0" @click="czMove(cz.home, i, -1)" title="Move up">↑</button>
+                        <button class="ghost icon-only" :disabled="i === cz.home.length - 1" @click="czMove(cz.home, i, 1)" title="Move down">↓</button>
+                        <button class="ghost icon-only" @click="cz.home.splice(i, 1); cz.open = -1" title="Remove"><span class="ico" x-html="icon('x')"></span></button>
+                      </span>
+                    </div>
+                    <div class="cz-edit" x-show="cz.open === i">
+                      <template x-if="b.type === 'agenda'">
+                        <div class="cz-checks">
+                          <template x-for="k in ['overdue', 'today', 'upcoming']" :key="k">
+                            <label class="check"><input type="checkbox" :checked="!b.sections?.length || b.sections.includes(k)" @change="czSection(b, k)">
+                              <span x-text="{overdue: 'Overdue', today: 'Today', upcoming: 'Next 7 days'}[k]"></span></label>
+                          </template>
+                        </div>
+                      </template>
+                      <template x-if="b.type === 'glance'">
+                        <label class="set-field">Numbers of
+                          <select x-model="b.plugin">
+                            <option value="">Every list</option>
+                            <template x-for="p in app.plugins" :key="p.id"><option :value="p.id" x-text="p.title" :selected="b.plugin === p.id"></option></template>
+                          </select>
+                        </label>
+                      </template>
+                      <template x-if="b.type === 'list'">
+                        <div class="cz-fields">
+                          <label class="set-field">List
+                            <select @change="czSetColl(b, $event.target.value)">
+                              <template x-for="o in listColls()" :key="o.key"><option :value="o.key" x-text="o.label" :selected="o.key === b.plugin + '/' + b.coll"></option></template>
+                            </select>
+                          </label>
+                          <label class="set-field">Title <input x-model="b.title" :placeholder="collOf(b.plugin, b.coll)?.label" maxlength="80"></label>
+                          <label class="set-field" x-show="czGroups(b).length">Only the group
+                            <select x-model="b.group">
+                              <option value="">All</option>
+                              <template x-for="g in czGroups(b)" :key="g"><option :value="g" x-text="g" :selected="b.group === g"></option></template>
+                            </select>
+                          </label>
+                          <label class="set-field">Only matching <input x-model="b.search" placeholder="text, e.g. a tag" maxlength="80"></label>
+                          <label class="set-field">Rows <input type="number" min="1" max="50" x-model.number="b.limit"></label>
+                        </div>
+                      </template>
+                      <template x-if="b.type === 'note'">
+                        <div class="cz-fields">
+                          <label class="set-field">Title <input x-model="b.title" maxlength="80"></label>
+                          <label class="set-field">Text (Markdown) <textarea x-model="b.text" rows="4" maxlength="4000"></textarea></label>
+                        </div>
+                      </template>
+                    </div>
+                  </li>
+                </template>
+              </ul>
+              <label class="set-field">Add a block
+                <select x-model="cz.adding" @change="czAdd(cz.adding)">
+                  <option value="">Choose…</option>
+                  <option value="agenda">Agenda (overdue, today, next 7 days)</option>
+                  <option value="glance">At a glance (numbers)</option>
+                  <option value="list">Records from a list</option>
+                  <option value="note">Note</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="cz-save" x-show="!demo">
+              <button class="primary" @click="czSave()" :disabled="cz.saving || offline">Save</button>
+              <a class="button ghost" href="#/today">Cancel</a>
+              <button class="ghost" @click="czSave(true)" :disabled="cz.saving || offline">Reset to default</button>
+            </div>
+          </section>
+        </template>

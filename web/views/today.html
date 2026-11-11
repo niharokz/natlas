@@ -1,0 +1,107 @@
+        <!-- ───── TODAY ───── -->
+        <template x-if="route.view === 'today'">
+          <section class="view">
+            <header class="view-head">
+              <h1 x-text="todayTitle()"></h1>
+              <button class="ghost icon-only" @click="loadToday(true)" title="Refresh"><span class="ico" x-html="icon('refresh')"></span></button>
+            </header>
+
+            <template x-if="!todayLoaded"><div class="skeleton"><i></i><i></i><i></i></div></template>
+
+            <template x-if="todayLoaded">
+              <div>
+                <!-- records changed on two devices (Syncthing conflict copies) -->
+                <button class="conflict-card" x-show="conflicts.list.length" @click="openConflicts()">
+                  <span class="ico" x-html="icon('sync')"></span>
+                  <span><strong x-text="conflicts.list.length + (conflicts.list.length === 1 ? ' record was' : ' records were') + ' changed on two devices'"></strong>
+                    <small>Tap to pick which version to keep</small></span>
+                </button>
+                <p class="note" x-show="!conflicts.main && conflicts.copies" x-text="conflicts.copies + ' sync conflict cop' + (conflicts.copies === 1 ? 'y' : 'ies') + ' waiting for the main device to merge them.'"></p>
+                <template x-for="(b, bi) in layout.home" :key="bi + b.type + (b.plugin || '') + (b.coll || '')">
+                  <div class="block">
+                    <!-- agenda: overdue / today / next 7 days -->
+                    <template x-if="b.type === 'agenda'">
+                      <div>
+                    <template x-for="sec in agendaSections(b)" :key="sec.key">
+                      <section class="group">
+                        <h2><span x-text="sec.label"></span> <small x-text="sec.items.length"></small></h2>
+                        <ul class="rows">
+                          <template x-for="it in sec.items" :key="it.plugin + it.collection + it.id">
+                            <li class="row" :class="sec.key">
+                              <button class="row-main" @click="openFromAgenda(it)">
+                                <span class="ico dim" x-html="icon(it.icon)"></span>
+                                <span class="row-text">
+                                  <strong x-text="it.title"></strong>
+                                  <small x-text="agendaSub(it)"></small>
+                                </span>
+                              </button>
+                              <template x-for="a in (demo ? [] : it.actions)" :key="a.id">
+                                <button class="act" @click="runAgendaAction(it, a)" :title="a.label">
+                                  <span x-text="a.icon || ''"></span> <span class="act-label" x-text="a.label"></span>
+                                </button>
+                              </template>
+                            </li>
+                          </template>
+                        </ul>
+                      </section>
+                    </template>
+                        <p class="empty" x-show="agendaSections(b).length === 0">Nothing due. Enjoy the day.</p>
+                      </div>
+                    </template>
+                    <!-- glance: the plugins' numbers -->
+                    <template x-if="b.type === 'glance'">
+                      <div>
+                        <h2 class="stats-title" x-text="blockTitle(b)"></h2>
+                        <div class="stats">
+                          <template x-for="s in glanceStats(b)" :key="s.plugin">
+                            <a class="stat-card" :href="'#/p/' + s.plugin">
+                              <p><span class="ico dim" x-html="icon(s.icon)"></span> <span x-text="s.title"></span></p>
+                              <p class="error" x-show="s.error" x-text="s.error"></p>
+                              <dl>
+                                <template x-for="w in s.widgets" :key="w.label">
+                                  <div :class="w.value ? w.tone : ''">
+                                    <dt x-text="w.label"></dt>
+                                    <dd x-text="fmtWidget(w)"></dd>
+                                  </div>
+                                </template>
+                              </dl>
+                            </a>
+                          </template>
+                        </div>
+                      </div>
+                    </template>
+                    <!-- list: a few records of one list -->
+                    <template x-if="b.type === 'list'">
+                      <section class="group">
+                        <h2><a :href="'#/p/' + b.plugin + '/' + b.coll" x-text="blockTitle(b)"></a> <small x-text="blockRows(b).length"></small></h2>
+                        <ul class="rows">
+                          <template x-for="r in blockRows(b)" :key="r._id">
+                            <li class="row">
+                              <button class="row-main" @click="openRecord(collOf(b.plugin, b.coll), r)">
+                                <span class="row-text">
+                                  <strong x-text="display(collOf(b.plugin, b.coll), collOf(b.plugin, b.coll).list.title, r) || '(untitled)'"></strong>
+                                  <small x-text="subtitle(collOf(b.plugin, b.coll), r)"></small>
+                                </span>
+                              </button>
+                              <a class="act" x-show="linkFor(collOf(b.plugin, b.coll), r)" :href="linkFor(collOf(b.plugin, b.coll), r)"
+                                 target="_blank" rel="noopener noreferrer" :title="collOf(b.plugin, b.coll).link?.label"><span class="ico" x-html="icon('link')"></span></a>
+                            </li>
+                          </template>
+                        </ul>
+                        <p class="empty" x-show="!blockRows(b).length">Nothing here.</p>
+                      </section>
+                    </template>
+                    <!-- note: your own Markdown -->
+                    <template x-if="b.type === 'note'">
+                      <section class="group note-block">
+                        <h2 x-show="b.title" x-text="b.title"></h2>
+                        <div class="md" x-html="md(b.text)"></div>
+                      </section>
+                    </template>
+                  </div>
+                </template>
+                <p class="empty" x-show="!layout.home.length">The Today screen is empty. <a href="#/customize">Customize</a> it.</p>
+              </div>
+            </template>
+          </section>
+        </template>

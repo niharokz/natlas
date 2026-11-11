@@ -1,0 +1,50 @@
+            <!-- document (plugins with view: document): a Markdown note as numbered sections -->
+            <template x-if="isDocument() && docLoaded()">
+              <div class="doc">
+                <aside class="doc-toc" :class="{open: doc.toc}">
+                  <p class="doc-toc-title">Contents</p>
+                  <nav>
+                    <template x-for="x in docSections()" :key="x.r._id">
+                      <a :href="'#/p/' + curPlugin().id" @click.prevent="docGo(x.r._id)" :class="{on: doc.active === x.r._id}">
+                        <span class="n" x-text="x.n"></span><span x-text="x.r.title"></span>
+                      </a>
+                    </template>
+                  </nav>
+                  <button class="ghost doc-add" x-show="!offline && !demo" @click="docAdd()"><span class="ico" x-html="icon('plus')"></span> Add section</button>
+                </aside>
+                <div class="doc-toc-bar">
+                  <button class="ghost" @click="doc.toc = !doc.toc"><span class="ico" x-html="icon('toc')"></span>
+                    <span x-text="docAll().find(r => r._id === doc.active)?.title || 'Contents'"></span></button>
+                </div>
+                <div class="backdrop doc-scrim" x-show="doc.toc" x-transition.opacity @click="doc.toc = false"></div>
+
+                <article class="doc-main">
+                  <header class="doc-hero">
+                    <div class="doc-hero-head">
+                      <div>
+                        <h2 class="doc-title"><i class="doc-dot"></i><span x-text="docFront()?.title || curPlugin().title"></span></h2>
+                        <p class="doc-sub" x-show="docFront()?.subtitle" x-text="docFront()?.subtitle"></p>
+                      </div>
+                      <button class="ghost icon-only" x-show="docColl('record') && !offline && !demo" @click="docEditFront()" title="Edit title and intro"><span class="ico" x-html="icon('edit')"></span></button>
+                    </div>
+                    <div class="md" x-html="md(docFront()?.intro)" x-effect="md(docFront()?.intro); $nextTick(() => mdEnhance($el))"></div>
+                    <p class="doc-meta"><template x-for="m in docMeta()" :key="m"><span x-text="m"></span></template></p>
+                  </header>
+
+                  <template x-for="x in docSections()" :key="x.r._id">
+                    <section class="doc-sec" :id="'sec-' + x.r._id" :data-id="x.r._id">
+                      <header>
+                        <h2><span class="num" x-text="x.n"></span><span x-text="x.r.title"></span></h2>
+                        <span class="doc-sec-acts" x-show="!offline && !demo">
+                          <button class="ghost icon-only" @click="docAdd(x.r)" title="Add a section below"><span class="ico" x-html="icon('plus')"></span></button>
+                          <button class="ghost icon-only" @click="docEdit(x.r)" title="Edit this section"><span class="ico" x-html="icon('edit')"></span></button>
+                        </span>
+                      </header>
+                      <div class="md" x-html="md(x.r.body)" x-effect="md(x.r.body); $nextTick(() => mdEnhance($el))"></div>
+                    </section>
+                  </template>
+                  <p class="empty" x-show="!docSections().length" x-text="docAll().length ? 'No section matches the search.' : 'This note has no sections yet - add the first one.'"></p>
+                  <template x-for="n in calNotes()" :key="n"><p class="note" x-text="n"></p></template>
+                </article>
+              </div>
+            </template>

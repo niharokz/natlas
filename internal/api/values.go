@@ -13,6 +13,7 @@ import (
 // fieldErrors maps a field key to a message shown next to that input.
 type fieldErrors map[string]string
 
+// Error lists the field errors.
 func (e fieldErrors) Error() string {
 	parts := make([]string, 0, len(e))
 	for k, v := range e {
@@ -60,6 +61,7 @@ func clean(c *config.Collection, in map[string]any, current store.Record, full b
 	return out, nil
 }
 
+// defaultValue is a field's default ("today" resolved), or nil.
 func defaultValue(f *config.Field) any {
 	if f.Default == nil {
 		return nil
@@ -140,6 +142,7 @@ func convert(f *config.Field, raw any, current store.Record) (any, error) {
 	return query.Text(raw), nil
 }
 
+// contains reports whether list holds s.
 func contains(list []string, s string) bool {
 	for _, v := range list {
 		if v == s {

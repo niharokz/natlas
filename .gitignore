@@ -1,11 +1,10 @@
-# secrets and personal notes - never commit
+# secrets and private notes — never commit
 .env
-natlas.yml
-/config/
 .private-words
 HOMELAB.md
 
-# local data and backups
+# runtime state (natlas.yml, layout.yml, bans.yml, demo/ live in NATLAS_CONFIG_DIR)
+/config/
 /data/
 *.bck
 *.bak
@@ -13,15 +12,14 @@ HOMELAB.md
 # build output
 /natlas
 /bin/
+/dist/
+release-notes.md
 
 # patch zips kept locally (applied on the server, never committed)
 /patch/
 
-# Android build (android/build.sh)
-android/.env
-android/.cache/
+# Android build (scripts/build-in-container.sh)
 android/.gradle/
-android/dist/
 android/app/build/
 android/app/src/main/jniLibs/
 android/local.properties

@@ -1,0 +1,112 @@
+      <!-- record sheet -->
+      <dialog class="sheet" :class="{wide: sheetWide()}" x-ref="sheet" @close="sheetClosed()" @cancel.prevent="closeSheet()">
+        <template x-if="sheet.coll">
+          <form @submit.prevent="saveSheet()" novalidate>
+            <header>
+              <h2 x-text="sheetTitle()"></h2>
+              <button type="button" class="ghost icon-only" @click="closeSheet()" title="Close"><span class="ico" x-html="icon('x')"></span></button>
+            </header>
+            <p class="error" x-show="sheet.error" x-text="sheet.error"></p>
+            <p class="conflict" x-show="sheet.conflict">
+              This record changed elsewhere while you were editing (probably Taskmaster).
+              <button type="button" @click="reloadSheet()">Reload it</button>
+            </p>
+
+            <div class="sheet-body">
+              <template x-for="f in visibleFields(sheet.coll)" :key="f.key">
+                <div class="field" :class="'t-' + f.type">
+                  <template x-if="f.type === 'bool'">
+                    <label class="check"><input type="checkbox" role="switch" x-model="sheet.values[f.key]" :disabled="isLocked(f)"> <span x-text="f.label"></span></label>
+                  </template>
+                  <template x-if="f.type === 'markdown' && !isLocked(f)">
+                    <div class="md-edit">
+                      <div class="md-edit-head">
+                        <span x-text="f.label"></span>
+                        <span class="md-tabs">
+                          <button type="button" :class="{on: !mdPreview}" @click="mdPreview = false">Write</button>
+                          <button type="button" :class="{on: mdPreview}" @click="mdPreview = true">Preview</button>
+                        </span>
+                      </div>
+                      <textarea x-show="!mdPreview" x-model="sheet.values[f.key]" rows="18" spellcheck="true" :placeholder="f.placeholder || ''"></textarea>
+                      <div class="md md-preview" x-show="mdPreview" x-html="mdPreview ? md(sheet.values[f.key]) : ''"
+                           x-effect="mdPreview && md(sheet.values[f.key]); $nextTick(() => mdPreview && mdEnhance($el))"></div>
+                      <small class="help" x-show="f.help && !sheet.errors[f.key]" x-text="f.help"></small>
+                      <small class="field-error" x-show="sheet.errors[f.key]" x-text="sheet.errors[f.key]"></small>
+                    </div>
+                  </template>
+                  <template x-if="f.type !== 'bool' && !(f.type === 'markdown' && !isLocked(f))">
+                    <label>
+                      <span><span x-text="f.label"></span><b x-show="f.required" title="required"> *</b></span>
+                      <template x-if="isLocked(f)">
+                        <output x-text="display(sheet.coll, f.key, sheet.record || {}) || '—'"></output>
+                      </template>
+                      <template x-if="!isLocked(f) && f.type === 'textarea'">
+                        <textarea x-model="sheet.values[f.key]" rows="3" :placeholder="f.placeholder || ''"></textarea>
+                      </template>
+                      <template x-if="!isLocked(f) && f.type === 'list'">
+                        <textarea x-model="sheet.values[f.key]" rows="5" :placeholder="f.placeholder || 'One per line'"></textarea>
+                      </template>
+                      <template x-if="!isLocked(f) && f.type === 'select' && !f.allow_new">
+                        <select x-model="sheet.values[f.key]">
+                          <option value="" x-show="!f.required">—</option>
+                          <template x-for="o in optionsFor(sheet.coll, f, sheet.values[f.key])" :key="o"><option :value="o" x-text="o" :selected="o === sheet.values[f.key]"></option></template>
+                        </select>
+                      </template>
+                      <template x-if="!isLocked(f) && f.type === 'select' && f.allow_new">
+                        <span class="combo">
+                          <input x-model="sheet.values[f.key]" :list="'dl-' + f.key" :placeholder="f.placeholder || 'Pick or type new'" autocomplete="off">
+                          <datalist :id="'dl-' + f.key">
+                            <template x-for="o in optionsFor(sheet.coll, f, '')" :key="o"><option :value="o"></option></template>
+                          </datalist>
+                        </span>
+                      </template>
+                      <template x-if="!isLocked(f) && ['text','url','number','money','date','time','anniversary'].includes(f.type)">
+                        <span class="with-unit">
+                          <input :type="inputType(f)" x-model="sheet.values[f.key]" :placeholder="f.placeholder || ''"
+                                 :inputmode="['number','money'].includes(f.type) ? 'decimal' : null" step="any">
+                          <small x-show="f.unit || f.type === 'money'" x-text="f.type === 'money' ? app.currency : f.unit"></small>
+                        </span>
+                      </template>
+                      <small class="help" x-show="f.help && !sheet.errors[f.key]" x-text="f.help"></small>
+                      <small class="field-error" x-show="sheet.errors[f.key]" x-text="sheet.errors[f.key]"></small>
+                    </label>
+                  </template>
+                </div>
+              </template>
+
+              <template x-if="sheet.record && otherFields().length">
+                <details class="other">
+                  <summary>Other fields in the file</summary>
+                  <dl class="facts">
+                    <template x-for="o in otherFields()" :key="o.key"><div><dt x-text="o.key"></dt><dd x-text="o.value"></dd></div></template>
+                  </dl>
+                </details>
+              </template>
+            </div>
+
+            <footer>
+              <button type="submit" class="primary" x-show="!sheet.coll?.readonly" :disabled="sheet.saving || offline"
+                      x-text="sheet.saving ? 'Saving…' : (sheet.mode === 'new' ? 'Add' : 'Save')"></button>
+              <template x-if="sheet.mode === 'edit' && sheet.record">
+                <span class="sheet-actions">
+                  <template x-for="a in sheetActions()" :key="a.id">
+                    <button type="button" @click="runAction(sheet.coll, sheet.record, a)" :disabled="offline">
+                      <span x-text="a.icon || ''"></span> <span x-text="a.label"></span>
+                    </button>
+                  </template>
+                  <template x-if="sheet.coll?.order === 'manual'">
+                    <span class="move">
+                      <button type="button" @click="moveRecord(-1)" title="Move up">↑</button>
+                      <button type="button" @click="moveRecord(1)" title="Move down">↓</button>
+                    </span>
+                  </template>
+                  <a class="button ghost" x-show="sheet.coll?.link" :href="linkFor(sheet.coll, sheet.record)" target="_blank" rel="noopener noreferrer">
+                    <span class="ico" x-html="icon('link')"></span> <span x-text="sheet.coll?.link?.label"></span>
+                  </a>
+                  <button type="button" class="danger" x-show="!sheet.coll?.readonly && sheet.coll?.kind === 'list'" @click="deleteRecord()" :disabled="offline">Delete</button>
+                </span>
+              </template>
+            </footer>
+          </form>
+        </template>
+      </dialog>

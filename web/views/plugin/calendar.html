@@ -1,0 +1,101 @@
+            <!-- calendar (plugins with view: calendar) -->
+            <template x-if="isCalendar() && calLoaded()">
+              <div class="cal" :class="'cal-v-' + cal.view">
+                <div class="cal-bar">
+                  <button class="ghost cal-today" @click="calToday()">Today</button>
+                  <button class="ghost icon-only" @click="calMove(-1)" title="Previous"><span class="ico" x-html="icon('left')"></span></button>
+                  <button class="ghost icon-only" @click="calMove(1)" title="Next"><span class="ico" x-html="icon('right')"></span></button>
+                  <h2 class="cal-title" x-text="calTitle()"></h2>
+                  <nav class="tabs cal-views" aria-label="Calendar view">
+                    <template x-for="v in ['month', 'week', 'schedule']" :key="v">
+                      <a href="" @click.prevent="calSetView(v)" :aria-current="cal.view === v ? 'page' : null" x-text="v[0].toUpperCase() + v.slice(1)"></a>
+                    </template>
+                  </nav>
+                </div>
+
+                <div class="cal-chips" x-show="calCalendars().length > 1">
+                  <template x-for="k in calCalendars()" :key="k.name">
+                    <button class="chip" :class="{off: !k.on}" :aria-pressed="k.on" @click="toggleCal(k.name)">
+                      <span x-text="k.name"></span> <small x-text="k.count"></small>
+                    </button>
+                  </template>
+                </div>
+
+                <!-- month: tap a day to see it below, tap it again to add -->
+                <template x-if="cal.view === 'month'">
+                  <div>
+                    <div class="cal-grid" @touchstart.passive="calTouch($event, 'start')" @touchend="calTouch($event, 'end')">
+                      <template x-for="w in calWeekdays()" :key="w"><div class="cal-dow" x-text="w"></div></template>
+                      <template x-for="d in calMonthDays()" :key="d.iso">
+                        <div class="cal-cell" :class="{out: d.out, today: d.today, picked: d.picked, past: d.past}" @click="calPick(d)">
+                          <span class="cal-n" x-text="d.n"></span>
+                          <template x-for="e in d.events.slice(0, 3)" :key="e.key">
+                            <button class="cal-ev" :class="calCatClass(e)" @click.stop="calOpen(e)" :title="e.title">
+                              <b x-show="e.time" x-text="e.time"></b><span x-text="e.title"></span>
+                            </button>
+                          </template>
+                          <small class="cal-more" x-show="d.events.length > 3" x-text="'+' + (d.events.length - 3)"></small>
+                        </div>
+                      </template>
+                    </div>
+                    <section class="cal-day">
+                      <header>
+                        <h3 x-text="calDateLabel(calPicked().iso, true)"></h3>
+                        <button class="ghost" x-show="calCanAdd()" @click="calNew(calPicked().iso)"><span class="ico" x-html="icon('plus')"></span> Add</button>
+                      </header>
+                      <ul class="rows" x-show="calPicked().events.length">
+                        <template x-for="e in calPicked().events" :key="e.key">
+                          <li class="row"><button class="row-main cal-item" @click="calOpen(e)">
+                            <i class="cal-dot" :class="calCatClass(e)"></i>
+                            <span class="row-text"><strong x-text="e.title"></strong><small x-text="calSub(e, calPicked().iso)"></small></span>
+                          </button></li>
+                        </template>
+                      </ul>
+                      <p class="empty" x-show="!calPicked().events.length">Nothing on this day.</p>
+                    </section>
+                  </div>
+                </template>
+
+                <!-- week: seven columns on wide screens, seven stacked days on a phone -->
+                <template x-if="cal.view === 'week'">
+                  <div class="cal-week" @touchstart.passive="calTouch($event, 'start')" @touchend="calTouch($event, 'end')">
+                    <template x-for="d in calWeek()" :key="d.iso">
+                      <section class="cal-col" :class="{today: d.today, past: d.past}">
+                        <header>
+                          <span><small x-text="_d(d.iso).toLocaleDateString(app.locale, {weekday: 'short'})"></small> <b x-text="d.n"></b></span>
+                          <button class="ghost icon-only" x-show="calCanAdd()" @click="calNew(d.iso)" title="Add on this day"><span class="ico" x-html="icon('plus')"></span></button>
+                        </header>
+                        <template x-for="e in d.events" :key="e.key">
+                          <button class="cal-ev" :class="calCatClass(e)" @click="calOpen(e)" :title="e.title">
+                            <b x-text="e.time ? calTime(e.time) : (e.end !== e.date ? 'All days' : 'All day')"></b><span x-text="e.title"></span>
+                          </button>
+                        </template>
+                      </section>
+                    </template>
+                  </div>
+                </template>
+
+                <!-- schedule: only the days that have something -->
+                <template x-if="cal.view === 'schedule'">
+                  <div class="cal-schedule">
+                    <template x-for="d in calSchedule()" :key="d.iso">
+                      <section class="cal-sday" :class="{today: d.today}">
+                        <h3><b x-text="d.n"></b><small x-text="_d(d.iso).toLocaleDateString(app.locale, {weekday: 'short', month: 'short'})"></small></h3>
+                        <ul class="rows">
+                          <template x-for="e in d.events" :key="e.key">
+                            <li class="row"><button class="row-main cal-item" @click="calOpen(e)">
+                              <i class="cal-dot" :class="calCatClass(e)"></i>
+                              <span class="row-text"><strong x-text="e.title"></strong><small x-text="calSub(e, d.iso)"></small></span>
+                            </button></li>
+                          </template>
+                        </ul>
+                      </section>
+                    </template>
+                    <p class="empty" x-show="!calSchedule().length" x-text="'Nothing in the next ' + cal.days + ' days.'"></p>
+                    <button class="ghost cal-more-btn" @click="cal.days += 90">Show more</button>
+                  </div>
+                </template>
+
+                <template x-for="n in calNotes()" :key="n"><p class="note" x-text="n"></p></template>
+              </div>
+            </template>

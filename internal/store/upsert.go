@@ -111,6 +111,7 @@ func setFields(m *yaml.Node, c *config.Collection, rec Record) bool {
 	return changed
 }
 
+// indexOf is the position of n in list, or -1.
 func indexOf(list []*yaml.Node, n *yaml.Node) int {
 	for i, x := range list {
 		if x == n {

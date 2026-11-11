@@ -12,6 +12,7 @@ import (
 	"natlas/internal/store"
 )
 
+// agendaItem is one entry on the Today agenda.
 type agendaItem struct {
 	Plugin     string        `json:"plugin"`
 	Icon       string        `json:"icon"`
@@ -24,12 +25,14 @@ type agendaItem struct {
 	Actions    []actionBrief `json:"actions"`
 }
 
+// actionBrief is an action button on an agenda entry.
 type actionBrief struct {
 	ID    string `json:"id"`
 	Label string `json:"label"`
 	Icon  string `json:"icon,omitempty"`
 }
 
+// widgetOut is one number on the Today screen.
 type widgetOut struct {
 	Label      string  `json:"label"`
 	Value      float64 `json:"value"`
@@ -38,6 +41,7 @@ type widgetOut struct {
 	Collection string  `json:"collection"`
 }
 
+// statsOut is one plugin's numbers on the Today screen.
 type statsOut struct {
 	Plugin  string      `json:"plugin"`
 	Title   string      `json:"title"`
@@ -112,6 +116,7 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"agenda": agenda, "stats": stats, "today": dates.Format(dates.Today(), "")})
 }
 
+// daysOr is *d, or 7 when unset.
 func daysOr(d *int) int {
 	if d == nil {
 		return math.MaxInt32
@@ -119,6 +124,7 @@ func daysOr(d *int) int {
 	return *d
 }
 
+// agendaEntry turns a record matched by an agenda rule into an agenda item.
 func agendaEntry(p *config.Plugin, c *config.Collection, rule *config.Agenda, rec map[string]any) agendaItem {
 	item := agendaItem{
 		Plugin: p.ID, Icon: p.Icon, Collection: c.ID,
@@ -142,6 +148,7 @@ func agendaEntry(p *config.Plugin, c *config.Collection, rule *config.Agenda, re
 	return item
 }
 
+// widgetValue computes a widget (count, sum, monthly…) over the records.
 func widgetValue(c *config.Collection, wd *config.Widget, recs []map[string]any) float64 {
 	total := 0.0
 	for _, rec := range recs {

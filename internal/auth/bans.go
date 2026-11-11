@@ -31,6 +31,7 @@ type Bans struct {
 	f    banFile
 }
 
+// banFile is bans.yml: bans and recent failures per IP.
 type banFile struct {
 	Bans     map[string]Ban         `yaml:"bans"`
 	Failures map[string][]time.Time `yaml:"failures,omitempty"`
@@ -133,6 +134,7 @@ func (b *Bans) save() error {
 	return nil
 }
 
+// recentTimes keeps the times within the failure window.
 func recentTimes(list []time.Time, now time.Time) []time.Time {
 	var kept []time.Time
 	for _, t := range list {

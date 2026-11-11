@@ -33,6 +33,7 @@ var (
 	flowRowRe    = regexp.MustCompile(`^([ \t]*- )\{(.*)\}$`)
 )
 
+// parseYAML parses a file into its node tree and remembers its layout.
 func parseYAML(path string, data []byte) (*yamlDoc, error) {
 	d := &yamlDoc{path: path, compact: map[string]bool{}, padFlow: padFlowRe.Match(data)}
 	for _, m := range compactSeqRe.FindAllSubmatch(data, -1) {
@@ -63,6 +64,7 @@ func parseYAML(path string, data []byte) (*yamlDoc, error) {
 
 // ── navigation ────────────────────────────────────────────────────────────
 
+// mapIndex is the index of key's key node in a mapping, or -1.
 func mapIndex(m *yaml.Node, key string) int {
 	for i := 0; i+1 < len(m.Content); i += 2 {
 		if m.Content[i].Value == key {
@@ -72,6 +74,7 @@ func mapIndex(m *yaml.Node, key string) int {
 	return -1
 }
 
+// mapGet is the value node of key in a mapping, or nil.
 func mapGet(m *yaml.Node, key string) *yaml.Node {
 	if m == nil || m.Kind != yaml.MappingNode {
 		return nil
@@ -150,6 +153,7 @@ func (d *yamlDoc) Top(key string) string {
 	return ""
 }
 
+// toRecord turns a mapping node into a record.
 func toRecord(m *yaml.Node) Record {
 	rec := Record{}
 	for i := 0; i+1 < len(m.Content); i += 2 {
@@ -403,6 +407,7 @@ func (d *yamlDoc) restyle(out []byte) []byte {
 
 // ── value -> node ─────────────────────────────────────────────────────────
 
+// strNode is a plain string scalar node.
 func strNode(s string) *yaml.Node {
 	return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: s}
 }
@@ -461,6 +466,7 @@ var yaml11Patterns = []*regexp.Regexp{
 	regexp.MustCompile(`^(?:<<|=)$`),
 }
 
+// yaml11Ambiguous reports whether PyYAML would read s as something other than a string.
 func yaml11Ambiguous(s string) bool {
 	if s == "" {
 		return true

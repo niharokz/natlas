@@ -62,6 +62,7 @@ func (s *Server) quickAdd(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{"record": decorate(c, created)})
 }
 
+// fmtAny is a value as text for the quick-add reply.
 func fmtAny(v any) string {
 	if s, ok := v.(string); ok {
 		return s
@@ -89,6 +90,7 @@ var (
 		"thu": 4, "thur": 4, "thurs": 4, "fri": 5, "sat": 6}
 )
 
+// parseQuick splits a quick-add line into fields: date words, #tag, !priority, time, link.
 func parseQuick(c *config.Collection, text string, today time.Time) map[string]any {
 	q := c.QuickAdd
 	out := map[string]any{}
@@ -239,6 +241,7 @@ func parseDateWords(words []string, today time.Time) (time.Time, int) {
 	return time.Time{}, 0
 }
 
+// weekdayFull reads a weekday name ("mon", "monday").
 func weekdayFull(w string, out *time.Weekday) bool {
 	for _, d := range []time.Weekday{0, 1, 2, 3, 4, 5, 6} {
 		if strings.ToLower(d.String()) == w {
@@ -249,6 +252,7 @@ func weekdayFull(w string, out *time.Weekday) bool {
 	return false
 }
 
+// monthOf reads a month name ("oct", "october").
 func monthOf(s string) (time.Month, bool) {
 	if len(s) < 3 {
 		return 0, false

@@ -1,0 +1,156 @@
+            <!-- charts (a list with charts:, e.g. Health → Daily) -->
+            <template x-if="isCharts() && cur()">
+              <div class="charts">
+                <nav class="seg" aria-label="Views">
+                  <template x-for="t in chTabs()" :key="t[0]">
+                    <button :class="{on: ch.tab === t[0]}" @click="chSetTab(t[0])" x-text="t[1]"></button>
+                  </template>
+                </nav>
+                <p class="empty" x-show="!chDays().length && ch.tab !== 'days'">No days yet. The Natlas phone app fills this from Health Connect every morning (Settings → Health on the phone).</p>
+
+                <!-- Today -->
+                <template x-if="ch.tab === 'today' && chDays().length">
+                  <div>
+                    <p class="ch-sub">Latest day: <strong x-text="chLast() ? chDay(chLast().date, true) : ''"></strong><span x-show="chLast()?.r.sources" x-text="' · from ' + chLast()?.r.sources"></span></p>
+                    <div class="rings">
+                      <template x-for="x in chRings()" :key="x.m.field">
+                        <div class="ring" :class="{done: x.pct >= 1}">
+                          <div class="ring-art" x-html="x.svg"></div>
+                          <div class="ring-text">
+                            <strong x-text="chFmt(x.m, x.last?.v, true)"></strong>
+                            <span x-text="x.m.label"></span>
+                          </div>
+                          <small x-text="x.goal ? (x.pct >= 1 ? '✓ goal ' : Math.round(x.pct * 100) + '% of ') + chFmt(x.m, x.goal) : ''"></small>
+                          <small class="dim" x-text="x.last ? chWhen(x.last.iso) : 'no data'"></small>
+                        </div>
+                      </template>
+                    </div>
+                    <div class="tiles">
+                      <template x-for="t in chTiles()" :key="t.m.field">
+                        <button class="tile" @click="ch.metric = t.m.field; chSetTab(chTrendMetrics().some(m => m.field === t.m.field) ? 'trends' : 'body')">
+                          <span class="tile-label" x-text="t.m.label"></span>
+                          <strong x-text="chFmt(t.m, t.last.v)"></strong>
+                          <span class="tile-foot">
+                            <span class="delta" :class="t.tone" x-show="t.delta !== null" x-text="chDelta(t.delta)" :title="'Compared with the 30-day average'"></span>
+                            <span x-html="t.spark"></span>
+                          </span>
+                          <small class="dim" x-text="chWhen(t.last.iso) + (t.delta !== null ? ' · vs 30-day avg' : '')"></small>
+                        </button>
+                      </template>
+                    </div>
+                    <template x-if="chWeek().length">
+                      <section class="ch-card">
+                        <h3>Last 7 days</h3>
+                        <table class="ch-table">
+                          <thead><tr><th></th><th class="num">Average a day</th><th class="num">Week before</th><th class="num">Change</th></tr></thead>
+                          <tbody>
+                            <template x-for="w in chWeek()" :key="w.m.field">
+                              <tr><td x-text="w.m.label"></td><td class="num" x-text="chFmt(w.m, w.a)"></td><td class="num" x-text="chFmt(w.m, w.b)"></td>
+                                <td class="num"><span class="delta" :class="w.tone" x-text="chDelta(w.delta) || '—'"></span></td></tr>
+                            </template>
+                          </tbody>
+                        </table>
+                      </section>
+                    </template>
+                  </div>
+                </template>
+
+                <!-- Trends -->
+                <template x-if="ch.tab === 'trends' && chDays().length">
+                  <div>
+                    <div class="chips" role="group" aria-label="Metric">
+                      <template x-for="m in chTrendMetrics()" :key="m.field">
+                        <button :class="{on: chCurMetric()?.field === m.field}" @click="ch.metric = m.field; ch.tip = null" x-text="m.label"></button>
+                      </template>
+                    </div>
+                    <section class="ch-card">
+                      <header class="ch-head">
+                        <h3 x-text="chCurMetric()?.label"></h3>
+                        <div class="seg small" role="group" aria-label="Range">
+                          <template x-for="r in [['7','7D'],['30','30D'],['90','90D'],['365','1Y'],['all','All']]" :key="r[0]">
+                            <button :class="{on: ch.range === r[0]}" @click="ch.range = r[0]; ch.tip = null" x-text="r[1]"></button>
+                          </template>
+                        </div>
+                      </header>
+                      <div class="ch-box" x-html="chTrendHTML()" @pointermove="chPick($event)" @click="chPick($event)" @pointerleave="chLeave($event)"></div>
+                    </section>
+                    <dl class="ch-stats">
+                      <template x-for="s in chTrendStats()" :key="s.label">
+                        <div><dt x-text="s.label"></dt><dd><span :class="s.tone ? 'delta ' + s.tone : ''" x-text="s.value"></span></dd><small x-show="s.sub" x-text="s.sub"></small></div>
+                      </template>
+                    </dl>
+                  </div>
+                </template>
+
+                <!-- Sleep -->
+                <template x-if="ch.tab === 'sleep' && chSleep()">
+                  <div>
+                    <section class="ch-card">
+                      <header class="ch-head">
+                        <h3>Nights</h3>
+                        <div class="seg small" role="group" aria-label="Nights">
+                          <template x-for="n in [7, 14, 30]" :key="n">
+                            <button :class="{on: ch.nights === n}" @click="ch.nights = n; ch.tip = null" x-text="n + ' nights'"></button>
+                          </template>
+                        </div>
+                      </header>
+                      <ul class="legend">
+                        <template x-for="(st, k) in chSleep().stages" :key="st.field">
+                          <li><i :class="'sw s' + k"></i><span x-text="st.label"></span></li>
+                        </template>
+                      </ul>
+                      <p class="ch-read" :class="{on: ch.tip?.id === 'sleep'}" x-text="ch.tip?.id === 'sleep' ? chNightTip(chNights()[ch.tip.i]) : 'Tap a night to see its stages'"></p>
+                      <div class="nights" @pointerleave="chLeave($event)">
+                        <div class="night-axis"><template x-for="a in chSleepAxis()" :key="a.left"><span :style="'left:' + a.left + '%'" x-text="a.label"></span></template></div>
+                        <template x-for="(n, i) in chNights()" :key="n.iso">
+                          <button class="night" :class="{sel: ch.tip?.id === 'sleep' && ch.tip.i === i}" @pointerenter="$event.pointerType === 'mouse' && (ch.tip = {id: 'sleep', i})" @click="ch.tip = {id: 'sleep', i}">
+                            <span class="night-day" x-text="n.date.toLocaleDateString(app.locale, {weekday: 'short', day: 'numeric'})"></span>
+                            <span class="night-track">
+                              <span class="night-bar" :style="n.ok ? `left:${n.a / 9.6}%;width:${(n.b - n.a) / 9.6}%` : `left:0;width:${Math.min(n.hours * 60, 960) / 9.6}%`" :class="{untimed: !n.ok}">
+                                <template x-for="z in n.stages" :key="z.k"><i :class="'s' + z.k" :style="'flex:' + z.h"></i></template>
+                                <template x-if="!n.stages.length"><i class="s-none" style="flex:1"></i></template>
+                              </span>
+                            </span>
+                            <span class="night-h" x-text="chFmt({unit: 'h'}, n.hours)"></span>
+                          </button>
+                        </template>
+                      </div>
+                    </section>
+                    <dl class="ch-stats">
+                      <template x-for="s in chSleepStats()" :key="s.label">
+                        <div><dt><i x-show="s.key !== undefined" :class="'sw s' + s.key"></i><span x-text="s.label"></span></dt><dd x-text="s.value"></dd><small x-show="s.sub" x-text="s.sub"></small></div>
+                      </template>
+                    </dl>
+                  </div>
+                </template>
+
+                <!-- Body -->
+                <template x-if="ch.tab === 'body'">
+                  <div>
+                    <div class="seg small" role="group" aria-label="Range">
+                      <template x-for="r in [['30','30D'],['90','90D'],['365','1Y'],['all','All']]" :key="r[0]">
+                        <button :class="{on: ch.bodyRange === r[0]}" @click="ch.bodyRange = r[0]; ch.tip = null" x-text="r[1]"></button>
+                      </template>
+                    </div>
+                    <template x-for="b in chBodyCards()" :key="b.m.field">
+                      <section class="ch-card">
+                        <header class="ch-head">
+                          <h3 x-text="b.m.label"></h3>
+                          <span class="dim" x-text="'Latest ' + chFmt(b.m, b.latest.v) + ' · ' + chWhen(b.latest.iso)"></span>
+                        </header>
+                        <div class="ch-box" x-show="b.html" x-html="b.html" @pointermove="chPick($event)" @click="chPick($event)" @pointerleave="chLeave($event)"></div>
+                        <p class="dim" x-show="!b.html">Not enough readings in this range.</p>
+                        <dl class="ch-stats inline">
+                          <div><dt>Change</dt><dd><span class="delta" :class="b.tone" x-text="chSigned(b.m, b.ch)"></span></dd></div>
+                          <div><dt>7-day average</dt><dd x-text="chFmt(b.m, b.avg7)"></dd></div>
+                          <div><dt>Lowest</dt><dd x-text="chFmt(b.m, b.lo)"></dd></div>
+                          <div><dt>Highest</dt><dd x-text="chFmt(b.m, b.hi)"></dd></div>
+                          <div><dt>Readings</dt><dd x-text="b.list.length"></dd></div>
+                        </dl>
+                      </section>
+                    </template>
+                    <p class="empty" x-show="!chBodyCards().length">No body measurements yet.</p>
+                  </div>
+                </template>
+              </div>
+            </template>

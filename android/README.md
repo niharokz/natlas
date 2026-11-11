@@ -104,26 +104,16 @@ If the phone was off at sync time, or background access is not allowed, the sync
 
 The latest signed APK: <https://gitlab.com/niharokz/natlas/-/releases/permalink/latest/downloads/natlas.apk> (older ones on the Releases page). Every tag `vX.Y.Z` builds it; see "Releases and the Android APK" in the main README.
 
-## Build (on your server, with Docker)
+## Build
 
-Nothing to install but Docker. Run from the repo root:
+The APK is built in Docker by **gtlbrunner** (your release runner), never on the host:
 
-```sh
-cp android/.env.example android/.env     # set NATLAS_KEYSTORE_PASSWORD
-./android/build.sh keystore              # once: creates $KEYS_HOME/.natlas-keys/natlas.jks - back it up
-./android/build.sh                       # → android/dist/natlas-<version>.apk
-```
+- **Release:** push a tag `vX.Y.Z` (`sh scripts/release.sh "vX.Y.Z …"`); the `release-files` job builds and signs it, and the GitLab release links it.
+- **By hand on the server:** `./build.sh natlas` in the gtlbrunner folder → `dist/natlas/<version>/natlas-<version>.apk`.
 
-- `./android/build.sh quick` skips the tests and builds for 64-bit phones only (fastest).
-- `./android/build.sh debug` needs no key; it installs next to the release app.
-- The first build downloads the Android SDK and Gradle into the builder image and
-  `android/.cache` (a few GB); later builds take a minute or two.
-- Updates must be signed with the same key. Lose the key and you must uninstall
-  (losing nothing: your data lives in the notes folder, not in the app).
+Both run `scripts/build-in-container.sh` inside the `natlas-builder` image (`docker/builder/Dockerfile`): Go vet and tests, the engine for three phone CPUs, the Kotlin unit tests, then the signed APK and `SHA256SUMS` in `dist/release/`. Modes: `ci` (default), `quick` (no tests, 64-bit phones only), `debug` (no key).
 
-Version: the root `VERSION` file.
-
-Signing keys live in `$KEYS_HOME/.natlas-keys/` (`KEYS_HOME` from your shell profile, default `~/.local/share/keys`), next to the other apps' keys. `NATLAS_KEYSTORE_DIR` in `android/.env` overrides it.
+The signing key lives only in gtlbrunner's `keys/natlas/`: `natlas.jks` plus `keystore.env` with `NATLAS_KEYSTORE_PASSWORD` (and optionally `NATLAS_KEY_ALIAS`, default `natlas`, and `NATLAS_KEY_PASSWORD`). Updates must be signed with the same key; lose it and you must uninstall (losing nothing: your data lives in the notes folder, not in the app). Version: the root `VERSION` file.
 
 ## Config folder
 

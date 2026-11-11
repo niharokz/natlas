@@ -48,6 +48,7 @@ func ValidHash(s string) error {
 	return err
 }
 
+// parseHash splits pbkdf2-sha256:iter:salt:key.
 func parseHash(s string) (iter int, salt, key []byte, err error) {
 	parts := strings.Split(strings.TrimSpace(s), ":")
 	if len(parts) != 4 || parts[0] != hashPrefix {

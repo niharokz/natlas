@@ -1,0 +1,43 @@
+/* phone.css — the Android app settings page (#/phone) and sync conflicts.
+   App layer on top of nss (vendor/nss.min.css): only nss tokens (--nss-*), mobile first,
+   side rail from 900px. Loaded in the order of index.html. */
+
+/* ── phone app (Android): settings page, sync conflicts ── */
+html.no-motion *,html.no-motion *::before,html.no-motion *::after{animation:none!important;transition:none!important}
+.conflict-card{display:flex;align-items:center;gap:.8rem;width:100%;margin:0 0 1rem;padding:.8rem 1rem;justify-content:flex-start;text-align:left;
+  border:1px solid color-mix(in srgb,var(--nss-warn) 45%,transparent);border-radius:var(--nss-radius);
+  background:color-mix(in srgb,var(--nss-warn) 12%,var(--nss-surface));color:var(--nss-fg);filter:none}
+.conflict-card strong{display:block;font-size:.95rem}
+.conflict-card small{font-family:var(--nss-sans)}
+.conflict-card .ico{color:var(--nss-warn)}
+.phone .set-card{margin:0 0 1rem;padding:1rem 1.1rem;border:1px solid var(--nss-line);border-radius:var(--nss-radius);background:var(--nss-surface);animation:set-in .25s ease-out both}
+@keyframes set-in{from{opacity:0;transform:translateY(8px)}}
+.phone .set-card:nth-child(3){animation-delay:.03s}.phone .set-card:nth-child(4){animation-delay:.06s}.phone .set-card:nth-child(5){animation-delay:.09s}
+.phone .set-card:nth-child(6){animation-delay:.12s}.phone .set-card:nth-child(7){animation-delay:.15s}.phone .set-card:nth-child(8){animation-delay:.18s}
+.phone h2{display:flex;align-items:center;gap:.5rem;margin:0 0 .7rem;font-size:1rem}
+.phone h2 .ico{color:var(--nss-ink)}
+.set-path{margin:0;font:.82rem var(--nss-mono);overflow-wrap:anywhere}
+.set-state{margin:.2rem 0 .6rem;font-size:.82rem}
+.set-state.ok{color:var(--nss-ok)}.set-state.bad{color:var(--nss-bad)}
+.set-help{margin:.2rem 0 .7rem;color:var(--nss-muted);font-size:.85rem}
+.set-row-btns{display:flex;flex-wrap:wrap;gap:.4rem;margin:.3rem 0 .4rem}
+.set-row-btns .ghost{border-color:var(--nss-line)}
+.set-field{display:grid;gap:.35rem;margin:.6rem 0;font-size:.88rem}
+.set-check{padding:.35rem 0!important}
+.set-list{list-style:none;padding:0;margin:0 0 .6rem;border:1px solid var(--nss-line);border-radius:10px;overflow:hidden}
+.set-list li{display:flex;align-items:center;justify-content:space-between;gap:.4rem;margin:0;padding:.2rem .4rem .2rem .8rem;border-bottom:1px solid var(--nss-line)}
+.set-list li:last-child{border-bottom:0}
+.set-list label.check{padding:0}
+.set-move{display:flex}
+.set-move .icon-only{width:2.3rem;height:2.3rem}
+.set-log{max-height:16rem;overflow:auto;white-space:pre-wrap;font-size:.72rem}
+dialog.conflicts .conf{display:flex;flex-direction:column;height:100%}
+dialog.conflicts header{display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.6rem .6rem .6rem 1rem;border-bottom:1px solid var(--nss-line)}
+dialog.conflicts header h2{margin:0;font-size:1.1rem}
+.conf-body{flex:1;overflow:auto;padding:1rem}
+.conf-table{display:table;width:100%;font-size:.85rem}
+.conf-table th:first-child{width:28%}
+.conf-table tr.diff td{font-weight:600;background:color-mix(in srgb,var(--nss-warn) 10%,transparent)}
+dialog.conflicts footer{display:flex;align-items:center;gap:.5rem;padding:.8rem 1rem calc(.8rem + var(--safe-b));border-top:1px solid var(--nss-line)}
+.conf-nav{margin-left:auto;display:flex}
+

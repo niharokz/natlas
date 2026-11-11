@@ -7,14 +7,14 @@
 #
 # Put words that must never appear in the public repo in .private-words
 # (one per line, gitignored): your domain, server user name, real names...
+# Also run by CI (job "public"), where .private-words does not exist.
 set -eu
 cd "$(git rev-parse --show-toplevel)"
 fail=0
 
-for f in .env natlas.yml .private-words HOMELAB.md; do
-  if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
-    echo "✗ $f is tracked by git - remove it: git rm --cached $f"; fail=1
-  fi
+# private files: settings, notes, runtime state, signing keys
+for f in $(git ls-files -- .env .private-words HOMELAB.md 'config/*' '*.jks' '*keystore.env' 'android/.env'); do
+  echo "✗ $f is tracked by git - remove it: git rm --cached $f"; fail=1
 done
 
 if git grep -nI -E '^NATLAS_(PASSWORD|PASSWORD_HASH|SECRET_KEY)=.{12,}' -- . ':!.env.example' ':!scripts/dev.sh' >/dev/null 2>&1; then

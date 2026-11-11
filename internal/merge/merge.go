@@ -74,6 +74,7 @@ func Copies(app *config.App) []string {
 	return out
 }
 
+// pluginFile is one writable data file and the collections stored in it.
 type pluginFile struct {
 	path    string
 	plugins []*config.Plugin
@@ -108,6 +109,7 @@ func pluginFiles(app *config.App) []pluginFile {
 	return out
 }
 
+// copiesOf finds the Syncthing conflict copies of path.
 func copiesOf(path string) []string {
 	dir, base := filepath.Dir(path), filepath.Base(path)
 	ext := filepath.Ext(base)
@@ -123,6 +125,7 @@ func copiesOf(path string) []string {
 	return out
 }
 
+// globEscape escapes glob characters in a file name.
 func globEscape(s string) string {
 	return strings.NewReplacer("[", "\\[", "]", "\\]", "*", "\\*", "?", "\\?").Replace(s)
 }
@@ -180,6 +183,7 @@ func Scan(app *config.App, now time.Time) (Report, error) {
 	return rep, errors.Join(errs...)
 }
 
+// has reports whether list holds a conflict with id.
 func has(list []Conflict, id string) bool {
 	for _, c := range list {
 		if c.ID == id {
@@ -222,6 +226,7 @@ func mergeCopy(pf pluginFile, copyPath string, now time.Time) (int, []Conflict, 
 	return added, pending, err
 }
 
+// mergeCollection adds records only in the copy and queues records that differ.
 func mergeCollection(doc, other store.Doc, p *config.Plugin, c *config.Collection, device, file string, now time.Time) (int, []Conflict, error) {
 	ours, err := doc.Items(c)
 	if err != nil {
@@ -313,6 +318,7 @@ func Resolve(app *config.App, id, keep string) error {
 	return save(app, append(list[:idx], list[idx+1:]...))
 }
 
+// takeOther writes the copy's version of a queued record into the file.
 func takeOther(app *config.App, c Conflict) error {
 	p := app.Plugin(c.Plugin)
 	if p == nil || p.Collection(c.Collection) == nil {
@@ -349,6 +355,7 @@ func takeOther(app *config.App, c Conflict) error {
 	})
 }
 
+// load reads the queued conflicts (.natlas/conflicts.yml).
 func load(app *config.App) ([]Conflict, error) {
 	b, err := os.ReadFile(listPath(app))
 	if errors.Is(err, os.ErrNotExist) {
@@ -364,6 +371,7 @@ func load(app *config.App) ([]Conflict, error) {
 	return list, nil
 }
 
+// save writes the queued conflicts atomically.
 func save(app *config.App, list []Conflict) error {
 	path := listPath(app)
 	if len(list) == 0 {

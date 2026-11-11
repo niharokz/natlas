@@ -3,6 +3,11 @@
 //
 // Files are built into the binary (go:embed). Set NATLAS_WEB_DIR=web to serve
 // them from disk instead while editing the UI.
+//
+//	index.html   the app's skeleton; {{> views/x.html}} lines pull in one screen each
+//	views/       the screens and dialogs (views/plugin/: calendar, document, charts)
+//	js/          the Alpine component, one part per feature (js/app.js merges them)
+//	css/         the app styles, one file per feature, on top of vendor/nss.min.css
 package web
 
 import (
@@ -16,13 +21,14 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"regexp"
 	"sort"
 	"strings"
 
 	"natlas/internal/config"
 )
 
-//go:embed index.html landing.html app.js natlas.css landing.css sw.js vendor icons
+//go:embed index.html landing.html landing.css sw.js views js css vendor icons
 var files embed.FS
 
 // Handler returns the static-site handler. Every asset URL carries a version
@@ -42,7 +48,7 @@ func Handler(dir string, app *config.App, release string, demo Demo) (http.Handl
 
 	page := func(name string) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			b, err := fs.ReadFile(root, name)
+			b, err := render(root, name, 0)
 			if err != nil {
 				http.NotFound(w, r)
 				return
@@ -73,8 +79,8 @@ func Handler(dir string, app *config.App, release string, demo Demo) (http.Handl
 	})
 	assets := http.StripPrefix("/assets/", http.FileServerFS(root))
 	mux.Handle("GET /assets/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/") || strings.HasSuffix(r.URL.Path, ".go") {
-			http.NotFound(w, r) // no directory listings, no source files
+		if strings.HasSuffix(r.URL.Path, "/") || strings.HasSuffix(r.URL.Path, ".go") || strings.HasPrefix(r.URL.Path, "/assets/views/") {
+			http.NotFound(w, r) // no directory listings, no source files, no page parts
 			return
 		}
 		if r.URL.Query().Get("v") != "" {
@@ -83,6 +89,26 @@ func Handler(dir string, app *config.App, release string, demo Demo) (http.Handl
 		assets.ServeHTTP(w, r)
 	}))
 	return mux, nil
+}
+
+// includeRe matches a whole line "{{> views/x.html}}".
+var includeRe = regexp.MustCompile(`(?m)^\{\{> ([a-z0-9/_.-]+)\}\}\n`)
+
+// render reads a page and replaces each include line with that file (nested up to 3 deep).
+func render(root fs.FS, name string, depth int) ([]byte, error) {
+	b, err := fs.ReadFile(root, name)
+	if err != nil || depth > 3 {
+		return b, err
+	}
+	var ferr error
+	b = includeRe.ReplaceAllFunc(b, func(m []byte) []byte {
+		part, err := render(root, string(includeRe.FindSubmatch(m)[1]), depth+1)
+		if err != nil {
+			ferr = err
+		}
+		return part
+	})
+	return b, ferr
 }
 
 // Demo is the read-only demo login shown on the sign-in screen (empty = none).

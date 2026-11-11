@@ -13,7 +13,8 @@ Every tab is a plugin, and a plugin is **one YAML file**: fields, dropdowns, lis
 - **Single Go binary.** About 8 MB, starts instantly, uses about 10 MB of RAM. One dependency (YAML), vendored.
 - **Installable app (PWA).** Bottom navigation on phones, swipe gestures, offline read-only mode.
 - **Plays well with other writers.** It edits only the record you changed, keeps comments and unknown fields, never re-sorts your file, and refuses to overwrite a record that changed underneath you.
-- **Android app with widgets.** The same app offline on your phone, over the folder Syncthing keeps in sync, with 13 home-screen widgets, fingerprint lock and Samsung Health sync. [Download the APK](https://gitlab.com/niharokz/natlas/-/releases/permalink/latest/downloads/natlas.apk) or see [android/README.md](android/README.md). - **No build step for the UI.** Alpine.js and the [nss](https://gitlab.com/niharokz/nss) stylesheet are vendored. Light and dark themes follow your system.
+- **Android app with widgets.** The same app offline on your phone, over the folder Syncthing keeps in sync, with 13 home-screen widgets, fingerprint lock and Samsung Health sync. [Download the APK](https://gitlab.com/niharokz/natlas/-/releases/permalink/latest/downloads/natlas.apk) or see [android/README.md](android/README.md).
+- **No build step for the UI.** Alpine.js and the [nss](https://gitlab.com/niharokz/nss) stylesheet are vendored. Light and dark themes follow your system.
 
 ---
 
@@ -99,12 +100,7 @@ Commands built into the binary: `natlas check`, `natlas hash-password`, `natlas 
 
 ### Android app
 
-**[Download the latest APK](https://gitlab.com/niharokz/natlas/-/releases/permalink/latest/downloads/natlas.apk)** (every release is on the [Releases](https://gitlab.com/niharokz/natlas/-/releases) page), or build it yourself with Docker:
-
-```sh
-cp android/.env.example android/.env && ./android/build.sh keystore   # once
-./android/build.sh                                                     # → android/dist/natlas-<version>.apk
-```
+**[Download the latest APK](https://gitlab.com/niharokz/natlas/-/releases/permalink/latest/downloads/natlas.apk)** (every release is on the [Releases](https://gitlab.com/niharokz/natlas/-/releases) page). It is built in Docker by a GitLab runner on a version tag; see [Releases](#releases-and-the-android-apk).
 
 The app runs this same engine on the phone in **phone mode** (`NATLAS_MODE=local`): bound to `127.0.0.1`, unlocked by a per-launch token instead of a password, plugins and sample data built in. Everything else - widgets, lock, permissions - is in [android/README.md](android/README.md).
 
@@ -127,7 +123,7 @@ The app runs this same engine on the phone in **phone mode** (`NATLAS_MODE=local
 | `NATLAS_NETWORK` | Existing Docker network shared with your reverse proxy. |
 | `NATLAS_COOKIE_SECURE` | `false` only for plain-http testing. |
 | `NATLAS_MAIN` | Default `true`: merge Syncthing conflict copies record by record (see below). Set `false` if another device does it. |
-| `NATLAS_CONFIG_DIR` | Host folder mounted at `/config`: holds `natlas.yml` and `bans.yml`. Must be writable by `PUID`. Default `./config`. |
+| `NATLAS_CONFIG_DIR` | Host folder mounted at `/config`: holds `natlas.yml`, `layout.yml`, `bans.yml` and `demo/`. Must be writable by `PUID`. Default `./config`. |
 | `NATLAS_DEVICE_KEY` | Optional, 32+ characters (`openssl rand -hex 32`). A browser given this key (app → **This device**) stays signed in until you log out; others are signed out after `NATLAS_SESSION_HOURS`. A new key signs every remembered browser out. |
 | `NATLAS_SESSION_HOURS` | Life of a login without the device key. Default `12`. |
 | `NATLAS_MAX_FAILURES`, `NATLAS_BAN_DAYS` | Failed logins (or device keys) within a day before a public IP is banned, and for how many days. Default `5` and `7`. Home addresses only get a 30-minute lockout. |
@@ -275,44 +271,40 @@ A metric is a number field, written as its name or `{ field, label, unit, goal, 
 ## Project layout
 
 ```
-cmd/natlas/        entry point (serve, check, hash-password, health, version, cli), middleware
+cmd/natlas/        entry point: main.go (commands), serve.go (server), commands.go, middleware.go
 internal/config/   .env, natlas.yml and plugin.yml loading and validation
-internal/store/    YAML and CSV reading and writing
+internal/store/    YAML, CSV and Markdown reading and writing
 internal/query/    the where / sort language
-internal/api/      HTTP API, dashboard, quick-add parser
-internal/auth/     login, signed session cookie, lockout
+internal/api/      HTTP API, Today screen, layout, quick add, phone snapshot
+internal/auth/     login, signed session cookie, lockout and IP bans
 internal/dates/    today, date formats, cycles, anniversaries
 internal/merge/    record-by-record merge of Syncthing conflict copies
-web/               landing page (/), the app (/app: index.html, app.js, natlas.css), service worker, vendored nss and Alpine
+web/               landing page (/) and the app (/app): index.html + views/ (screens),
+                   js/ (one Alpine part per feature), css/ (one file per feature), sw.js, vendor/
 plugins/           one folder per plugin, each holding a plugin.yml
-examples/data/     sample data for trying it out (also built into the binary)
-android/           the Android app: Kotlin shell, widgets, Docker build (android/build.sh)
-scripts/           dev.sh (local run), check-public.sh (pre-push secret check), release.sh (tag a release)
-.gitlab-ci.yml     tests on every push; a version tag builds the APK and the release
-.gitlab/           issue and merge request templates
+examples/data/     sample data (demo login, phone app; built into the binary)
+android/           the Android app: Kotlin shell, widgets, Health Connect
+docker/builder/    the APK build image (JDK, Android SDK, Go)
+scripts/           build-in-container.sh (APK), upload-release.sh + check-version.sh (CI),
+                   release.sh (tag a release), check-public.sh (secret check), dev.sh (local run)
+.gitlab-ci.yml     checks on every push; a version tag builds the APK and the release
 ```
 
-Run the tests with `go test ./...` (the `vendor/` folder is used automatically; no network needed).
+[ARCHITECTURE.md](ARCHITECTURE.md) describes every file and function. Run the tests with `go test ./...` (`vendor/` is used automatically; no network needed).
 
 ## Releases and the Android APK
 
 A release is a tag. One command does it all (write the changelog section first for proper notes; otherwise the message becomes the note):
 
 ```sh
-sh scripts/release.sh "v1.0.2 demo login on the sign-in screen"
+sh scripts/release.sh "v1.0.3 what changed"
 ```
 
-It sets `VERSION`, adds a `## X.Y.Z - date` changelog section if there is none, runs the tests (when Go is installed) and `check-public.sh`, commits everything, tags and pushes `main` and the tag. It refuses an existing tag, a branch other than `main`, or a `main` behind the remote.
+It sets `VERSION`, adds a `## X.Y.Z - date` changelog section if there is none, runs the tests (when a new enough Go is installed) and `check-public.sh`, commits everything, tags and pushes `main` and the tag. It refuses an existing tag, a branch other than `main`, or a `main` behind the remote.
 
-GitLab CI ([.gitlab-ci.yml](.gitlab-ci.yml)) then tests, builds the signed APK on **your own runner** (so it uses none of the free tier's 400 CI minutes, and the signing key never leaves your server), uploads it to the project's package registry and creates the release with that version's changelog. The newest APK is always at `/-/releases/permalink/latest/downloads/natlas.apk`. A tag that does not match `VERSION`, or a version without a changelog section, fails the pipeline.
+GitLab CI ([.gitlab-ci.yml](.gitlab-ci.yml)) then checks the code on GitLab's shared runners, and the `release-files` job builds the signed APK on **your own Docker GitLab runner** (no CI minutes used; the key never leaves your server) inside `natlas-builder` (`docker/builder/Dockerfile`) with `scripts/build-in-container.sh`, uploads it to the package registry, and the `release` job publishes the release with that version's changelog. The newest APK is always at `/-/releases/permalink/latest/downloads/natlas.apk`.
 
-Set up the runner once, on the machine that holds the signing key and Docker:
-
-1. Install [GitLab Runner](https://docs.gitlab.com/runner/install/linux-repository/) and let it run as **your user** (it needs Docker and `$KEYS_HOME/.natlas-keys`): `sudo gitlab-runner uninstall && sudo gitlab-runner install --user "$USER" --working-directory "$HOME/.gitlab-runner" && sudo gitlab-runner start`.
-2. GitLab → the project → **Settings → CI/CD → Runners → New project runner**: tag `natlas-apk`, untick "Run untagged jobs". Copy the token, then `sudo gitlab-runner register --url https://gitlab.com --token <token> --executor shell`.
-3. Put the keystore password next to the key: `printf 'NATLAS_KEYSTORE_PASSWORD=%s\n' '<password>' > "$KEYS_HOME/.natlas-keys/natlas.env" && chmod 600 "$KEYS_HOME/.natlas-keys/natlas.env"`.
-
-The first release build downloads the Android SDK (a few GB, kept in the runner's `android/.cache`); later ones take a few minutes.
+The runner is a dockerised `gitlab-runner` with a project runner tagged `natlas-app` that may only run `natlas-builder:*`, mounts a build-cache volume at `/build-cache` and the key folder read-only at `/keys` (`natlas.jks` + `keystore.env` with `NATLAS_KEYSTORE_PASSWORD`, optional `NATLAS_KEY_ALIAS` / `NATLAS_KEY_PASSWORD`). The image tag in `.gitlab-ci.yml` (`natlas-builder:1`) is the contract with the runner: bump it whenever `docker/builder/Dockerfile` changes, and rebuild the image there.
 
 ## Security notes
 
@@ -324,7 +316,7 @@ The first release build downloads the Android SDK (a few GB, kept in the runner'
 - **Logs:** every change and every failed request is logged with the client IP, never with bodies, cookies or passwords.
 - **Demo login:** optional (`NATLAS_DEMO_USERNAME`). Its sessions are signed with their own key, it is served from a separate copy of the sample data, every change is refused with 403, and it can never get a device key.
 - **Exposure:** the about page (`/`), `/healthz` and the web manifest are public; everything else needs a session. If you put Natlas on the internet, an extra layer such as a VPN or Cloudflare Access is still a good idea.
-- **Publishing your fork:** `scripts/check-public.sh` works as a git pre-push hook. It blocks pushing `.env`, `natlas.yml`, `HOMELAB.md`, anything that looks like a real secret, or any word you list in `.private-words`.
+- **Publishing your fork:** `scripts/check-public.sh` works as a git pre-push hook. It blocks pushing `.env`, `config/`, `HOMELAB.md`, signing keys, anything that looks like a real secret, or any word you list in `.private-words`. CI runs it too.
 
 Found a security problem? Please report it privately; see `SECURITY.md`.
 

@@ -12,15 +12,16 @@ import (
 )
 
 // Text formatting for the widget snapshot - the same rules as display() in
-// web/app.js, so a widget shows a record exactly like the app does.
+// web/js/lists.js, so a widget shows a record exactly like the app does.
 
-// tones colours common badge values (same table as app.js).
+// tones colours common badge values (same table as web/js/base.js).
 var tones = map[string]string{
 	"open": "accent", "pending": "warn", "closed": "muted", "done": "ok", "to do": "warn",
 	"high": "bad", "medium": "warn", "low": "muted", "active": "ok", "cancelled": "muted",
 	"premium": "ok", "excellent": "ok", "worn": "warn", "replace": "bad",
 }
 
+// relDays is "today", "tomorrow", "in 3 days", "2 days ago".
 func relDays(n int) string {
 	switch {
 	case n == 0:
@@ -110,8 +111,10 @@ func fmtNumber(app *config.App, v float64) string {
 	return out
 }
 
+// fmtMoney is the amount with the currency symbol.
 func fmtMoney(app *config.App, v float64) string { return app.Currency + fmtNumber(app, v) }
 
+// fmtStat formats a widget value (money, number, days).
 func fmtStat(app *config.App, v float64, format string) string {
 	if format == "money" {
 		return fmtMoney(app, v)
@@ -165,6 +168,7 @@ func display(app *config.App, c *config.Collection, key string, r map[string]any
 	return query.Text(v)
 }
 
+// subtitle is the list subtitle of a record.
 func subtitle(app *config.App, c *config.Collection, r map[string]any) string {
 	var parts []string
 	for _, k := range c.List.Subtitle {
@@ -175,6 +179,7 @@ func subtitle(app *config.App, c *config.Collection, r map[string]any) string {
 	return strings.Join(parts, " · ")
 }
 
+// badgeTone is the colour class of a badge value.
 func badgeTone(c *config.Collection, key string, r map[string]any) string {
 	v := strings.ToLower(query.Text(r[key]))
 	if f := c.Field(key); f != nil {

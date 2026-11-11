@@ -2,6 +2,15 @@
 
 Version numbers restarted at **1.0.0** on 2026-10-20. Earlier releases are listed as 0.x: the Python version is 0.1, and the Go releases first published as 2.0.0 – 3.1.1 are 0.2.0 – 0.6.1.
 
+## 1.0.3 - 2026-11-11
+
+- **APK builds move to a Docker GitLab runner (gtlbrunner).** A `vX.Y.Z` tag runs `release-files` inside the new `natlas-builder` image (`docker/builder/Dockerfile`) on your own runner (tag `natlas-app`), with the key mounted read-only; the APK and `SHA256SUMS` go to the package registry and the release. The same build runs by hand on the server (`./build.sh natlas` in gtlbrunner). No GitLab Runner on the host any more.
+- Removed `android/build.sh`, `android/Dockerfile`, `android/.env(.example)` and `android/scripts/`: the build is `scripts/build-in-container.sh` (`ci`, `quick`, `debug`), and the key with its password (`keystore.env`) lives only with the runner.
+- CI on every push: gofmt, vet and tests, `scripts/check-version.sh` (VERSION and CHANGELOG agree, tag matches), `scripts/check-public.sh` (no `.env`, `config/`, keys or secrets tracked).
+- **Modular web app.** `index.html` is a skeleton that pulls in one file per screen from `web/views/`; the Alpine component is split into one part per feature in `web/js/`; styles into `web/css/`. Same behaviour.
+- `cmd/natlas` split into `main.go`, `serve.go`, `commands.go`, `middleware.go`; every Go function has a one-line comment, and ARCHITECTURE.md lists every file and function.
+- `.env.example` rewritten: only the settings Natlas reads, grouped and commented.
+
 ## 1.0.2 - 2026-10-30
 
 - **Demo login on the sign-in screen** (tap it to fill in the form) instead of the start page.

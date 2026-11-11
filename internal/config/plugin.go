@@ -240,10 +240,16 @@ func (c *Collection) Lookup(key string) (query.FieldInfo, bool) {
 	return query.FieldInfo{}, false
 }
 
-// GroupCond, ActionCond, AgendaCond and WidgetCond expose compiled conditions.
-func (g *Group) Cond() query.Cond  { return g.cond }
+// Cond is the compiled where: of the group.
+func (g *Group) Cond() query.Cond { return g.cond }
+
+// Cond is the compiled when: of the action.
 func (a *Action) Cond() query.Cond { return a.cond }
+
+// Cond is the compiled where: of the agenda rule.
 func (a *Agenda) Cond() query.Cond { return a.cond }
+
+// Cond is the compiled where: of the widget.
 func (w *Widget) Cond() query.Cond { return w.cond }
 
 // ── preparation & validation ─────────────────────────────────────────────
@@ -575,6 +581,7 @@ func resolveOptions(f *Field, app *App) error {
 	return nil
 }
 
+// knownTypes lists the field types for error messages.
 func knownTypes() string {
 	keys := make([]string, 0, len(fieldTypes))
 	for k := range fieldTypes {

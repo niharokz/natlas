@@ -6,7 +6,7 @@
 # The first word is the version tag (vX.Y.Z); the whole text is the commit and tag message.
 # It sets VERSION, adds a CHANGELOG section if this version has none (edit it first for real notes),
 # runs the tests (if Go is installed) and the public-repo check, commits everything, tags and pushes.
-[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"
+[ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"   # also works when started with sh
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
@@ -38,13 +38,17 @@ if ! grep -q "^## $version " CHANGELOG.md; then
     { print }' CHANGELOG.md > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md
   echo "added a CHANGELOG section for $version"
 fi
+sh scripts/check-version.sh "$tag"
 
-# checks
-if command -v go >/dev/null; then
-  echo "== tests =="
-  go vet ./... && go test ./... | grep -v "no test files"
+# checks (only with the Go version go.mod asks for; CI always runs them)
+need=$(awk '/^go /{print $2}' go.mod)
+have=$(go env GOVERSION 2>/dev/null | sed 's/^go//' || true)
+if [ -n "$have" ] && [ "$(printf '%s\n' "$need" "$have" | sort -V | head -1)" = "$need" ]; then
+  echo "== tests (go $have) =="
+  go vet ./...
+  go test ./... | grep -v "no test files"
 else
-  echo "(Go not installed here - CI runs the tests)"
+  echo "(Go $need+ not installed here - CI runs the tests)"
 fi
 echo "== public-repo check =="
 git add -A

@@ -1,4 +1,5 @@
-# Natlas. All personal values (paths, user id, network) come from .env.
+# Natlas server. Every personal value (paths, user id, network, secrets) comes from .env
+# (see .env.example); this file holds none.
 services:
   natlas:
     build: .                                 # version: the VERSION file
@@ -22,6 +23,7 @@ services:
       NATLAS_BAN_DAYS: ${NATLAS_BAN_DAYS:-7}            # how long a public IP stays banned
       NATLAS_DEMO_USERNAME: ${NATLAS_DEMO_USERNAME:-}   # optional read-only demo login (sample data)
       NATLAS_DEMO_PASSWORD: ${NATLAS_DEMO_PASSWORD:-}
+      NATLAS_MAIN: ${NATLAS_MAIN:-true}                 # merges Syncthing conflict copies
       TZ: ${TZ:-UTC}
     volumes:
       # natlas.yml, layout.yml, bans.yml, demo/ (writable). Default ./config

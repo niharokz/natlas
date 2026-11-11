@@ -26,10 +26,16 @@ func TestRoutes(t *testing.T) {
 		!strings.Contains(body, `data-p="d&lt;e&gt;mo"`) {
 		t.Fatalf("app page: %d (title escaped, demo login on the sign-in form)", code)
 	}
+	if _, body := get("/app"); strings.Contains(body, "{{>") || !strings.Contains(body, `class="cal"`) || !strings.Contains(body, `x-ref="sheet"`) {
+		t.Fatal("app page: every views/ part must be included (calendar, sheet …)")
+	}
+	if _, body := get("/sw.js"); !strings.Contains(body, "/assets/js/") {
+		t.Fatal("service worker must cache js/ and css/")
+	}
 	if code, _ := get("/app/"); code != 301 {
 		t.Fatalf("/app/ should redirect, got %d", code)
 	}
-	for _, p := range []string{"/assets/vendor/", "/assets/web.go", "/nope"} {
+	for _, p := range []string{"/assets/vendor/", "/assets/web.go", "/assets/views/today.html", "/nope"} {
 		if code, _ := get(p); code != 404 {
 			t.Errorf("%s: want 404, got %d", p, code)
 		}

@@ -1,0 +1,147 @@
+        <!-- ───── PLUGIN ───── -->
+        <template x-if="route.view === 'plugin' && curPlugin().id">
+          <section class="view">
+            <header class="view-head">
+              <h1 x-text="curPlugin().title"></h1>
+              <div class="head-actions">
+                <button class="ghost icon-only" x-show="(curColl().list.filters?.length || curColl().list.search?.length) && chShowList()"
+                        @click="showFilters = !showFilters" :class="{on: showFilters || activeFilterCount()}" title="Search and filter">
+                  <span class="ico" x-html="icon('search')"></span>
+                  <small x-show="activeFilterCount()" x-text="activeFilterCount()"></small>
+                </button>
+                <button class="ghost icon-only" @click="reload()" title="Refresh"><span class="ico" x-html="icon('refresh')"></span></button>
+              </div>
+            </header>
+
+            <!-- collection tabs (Health: Planned / Completed / Gym / Profile) -->
+            <nav class="tabs" x-show="curPlugin().collections?.length > 1 && !isCalendar() && !isDocument()">
+              <template x-for="c in (curPlugin().collections || [])" :key="c.id">
+                <a :href="'#/p/' + curPlugin().id + '/' + c.id" :aria-current="c.id === route.coll ? 'page' : null" x-text="c.label"></a>
+              </template>
+            </nav>
+
+            <p class="note" x-show="cur()?.note && !isCalendar() && !isDocument()" x-text="cur()?.note"></p>
+
+            <!-- search + filters -->
+            <div class="filters" x-show="showFilters" x-transition>
+              <input type="search" x-model="search" placeholder="Search…" x-show="curColl().list.search?.length">
+              <template x-for="key in (curColl().list.filters || [])" :key="key">
+                <select x-model="filters[key]">
+                  <option value="" x-text="'All ' + fieldLabel(curColl(), key).toLowerCase()"></option>
+                  <template x-for="o in (cur()?.options[key] || [])" :key="o"><option :value="o" x-text="o"></option></template>
+                </select>
+              </template>
+              <button class="ghost" @click="clearFilters()" x-show="activeFilterCount()">Clear</button>
+            </div>
+
+            <!-- quick add -->
+            <form class="quick" x-show="curColl().quick_add && !curColl().readonly && !offline" @submit.prevent="quickAdd()">
+              <input x-model="quick" :placeholder="'Quick add: ' + (curColl().quick_add?.hint || 'name')" enterkeyhint="done">
+              <button :disabled="!quick.trim()" title="Add"><span class="ico" x-html="icon('plus')"></span></button>
+            </form>
+
+            <template x-if="!cur()"><div class="skeleton"><i></i><i></i><i></i><i></i></div></template>
+
+{{> views/plugin/document.html}}
+
+{{> views/plugin/calendar.html}}
+
+{{> views/plugin/charts.html}}
+
+            <!-- single record (Health profile) -->
+            <template x-if="cur() && curColl().kind === 'record' && !isCalendar() && !isDocument()">
+              <div class="record-view">
+                <button class="primary" @click="openRecord(curColl(), cur()?.records?.[0])">Edit</button>
+                <dl class="facts">
+                  <template x-for="f in visibleFields(curColl())" :key="f.key">
+                    <div><dt x-text="f.label"></dt><dd x-text="display(curColl(), f.key, cur()?.records?.[0]) || '—'"></dd></div>
+                  </template>
+                </dl>
+              </div>
+            </template>
+
+            <!-- summary (Inventory) -->
+            <template x-if="cur() && curColl().summary && !isCalendar() && !isDocument()">
+              <details class="summary">
+                <summary>Summary <small x-text="visibleRecords().length + ' items'"></small></summary>
+                <label class="inline">Group by
+                  <select x-model="summaryBy">
+                    <template x-for="k in curColl().summary?.group_by || []" :key="k"><option :value="k" x-text="fieldLabel(curColl(), k)"></option></template>
+                  </select>
+                </label>
+                <table>
+                  <thead><tr>
+                    <th x-text="fieldLabel(curColl(), summaryBy)"></th><th class="num">Count</th>
+                    <template x-for="k in curColl().summary?.sum || []" :key="k"><th class="num" x-text="fieldLabel(curColl(), k)"></th></template>
+                  </tr></thead>
+                  <tbody>
+                    <template x-for="row in summaryRows()" :key="row.label">
+                      <tr :class="{total: row.total}">
+                        <td x-text="row.label"></td><td class="num" x-text="row.count"></td>
+                        <template x-for="k in curColl().summary?.sum || []" :key="k"><td class="num" x-text="fmtField(curColl(), k, row.sums[k])"></td></template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </details>
+            </template>
+
+            <!-- the list -->
+            <template x-if="cur() && curColl().kind === 'list' && !isCalendar() && !isDocument() && chShowList()">
+              <div>
+                <template x-for="g in groupedRecords()" :key="g.label">
+                  <section class="group">
+                    <h2 x-show="g.label">
+                      <button class="group-toggle" @click="toggleGroup(g)">
+                        <span class="chev" :class="{open: !isCollapsed(g)}">▸</span>
+                        <span x-text="g.label"></span> <small x-text="g.records.length"></small>
+                      </button>
+                    </h2>
+                    <ul class="rows" x-show="!isCollapsed(g)">
+                      <template x-for="r in g.records" :key="r._id">
+                        <li class="row" :class="{picked: selected[r._id], muted: isMuted(curColl(), r)}"
+                            @pointerdown="pressStart($event, r)" @pointermove="pressMove($event)" @pointerup="pressEnd($event, r)"
+                            @pointercancel="pressCancel()" @contextmenu.prevent="onContextMenu(r)">
+                          <span class="swipe-hint right" x-text="primaryAction(curColl(), r)?.label || ''"></span>
+                          <span class="swipe-hint left">Edit</span>
+                          <div class="row-inner">
+                            <input type="checkbox" class="pick" :checked="!!selected[r._id]" @click.stop="toggleSelect(r)"
+                                   x-show="!curColl().readonly" aria-label="Select">
+                            <button class="row-main" @click="rowClick(r)">
+                              <span class="row-text">
+                                <strong x-text="display(curColl(), curColl().list.title, r) || '(untitled)'"></strong>
+                                <small x-text="subtitle(curColl(), r)"></small>
+                              </span>
+                            </button>
+                            <span class="badges">
+                              <template x-for="b in badges(curColl(), r)" :key="b.key">
+                                <button class="badge" :class="b.tone" :disabled="!b.editable"
+                                        @click.stop="openMenu($event, curColl(), r, b.key)" x-text="b.text"></button>
+                              </template>
+                            </span>
+                            <a class="act" x-show="!primaryAction(curColl(), r) && linkFor(curColl(), r)" :href="linkFor(curColl(), r)"
+                               target="_blank" rel="noopener noreferrer" @click.stop :title="curColl().link?.label"><span class="ico" x-html="icon('link')"></span></a>
+                            <template x-if="primaryAction(curColl(), r)">
+                              <button class="act" @click.stop="runAction(curColl(), r, primaryAction(curColl(), r))"
+                                      :title="primaryAction(curColl(), r)?.label">
+                                <span x-text="primaryAction(curColl(), r)?.icon || ''"></span>
+                                <span class="act-label" x-text="primaryAction(curColl(), r)?.label"></span>
+                              </button>
+                            </template>
+                          </div>
+                        </li>
+                      </template>
+                    </ul>
+                  </section>
+                </template>
+                <p class="empty" x-show="visibleRecords().length === 0"
+                   x-text="cur()?.records?.length ? 'Nothing matches the search or filters.' : 'Nothing here yet.'"></p>
+              </div>
+            </template>
+
+            <button class="fab" x-show="curColl().kind === 'list' && !curColl().readonly && !selecting && !offline"
+                    @click="isCalendar() ? calNew(cal.picked || cal.anchor) : isDocument() ? docAdd() : openNew(curColl())" title="Add">
+              <span class="ico" x-html="icon('plus')"></span>
+            </button>
+          </section>
+        </template>

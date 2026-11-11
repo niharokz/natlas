@@ -1,0 +1,24 @@
+/* customize.css — demo bar, Today blocks, Customize page, the demo login on the sign-in screen.
+   App layer on top of nss (vendor/nss.min.css): only nss tokens (--nss-*), mobile first,
+   side rail from 900px. Loaded in the order of index.html. */
+
+/* demo login: read-only sample data */
+.demo-bar{margin:.75rem 0 0;padding:.35rem .5rem .35rem .8rem;border-radius:8px;font-size:.88rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem;background:color-mix(in srgb,var(--nss-accent) 12%,var(--nss-surface));border:1px solid color-mix(in srgb,var(--nss-accent) 35%,transparent)}
+.demo-bar button{padding:.2rem .6rem;font-size:.85rem}
+
+/* Today blocks and Customize */
+.block + .block{margin-top:.4rem}
+.group h2 a{color:inherit;text-decoration:none}
+.note-block .md{font-size:.92rem}
+.set-list li.muted{opacity:.55}
+.set-list li.cz-block{display:block;padding:.15rem .4rem .15rem .2rem}
+.cz-row{display:flex;align-items:center;justify-content:space-between;gap:.4rem}
+.cz-name{flex:1;min-width:0;display:flex;align-items:center;gap:.5rem;justify-content:flex-start;text-align:left;padding:.45rem .5rem;border:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.cz-edit{padding:.1rem .6rem .6rem}
+.cz-checks{display:flex;flex-wrap:wrap;gap:.4rem 1rem;padding:.4rem 0}
+.cz-fields .set-field{margin:.45rem 0}
+.cz-save{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:.5rem 0 5rem}
+/* sign-in screen: the demo login, tap to fill in */
+.login .login-demo{display:flex;flex-direction:column;align-items:center;gap:.2rem;width:100%;margin:.9rem 0 .2rem;padding:.6rem .8rem;border:1px dashed color-mix(in srgb,var(--nss-accent) 55%,transparent);border-radius:10px;background:color-mix(in srgb,var(--nss-accent) 8%,transparent);color:var(--nss-fg);font:500 .88rem var(--nss-sans);text-align:center;min-height:0}
+.login-demo code{display:inline;margin:0;padding:.05rem .35rem;font-size:.85rem}
+.login-demo small{color:var(--nss-muted);font:400 .78rem var(--nss-sans)}

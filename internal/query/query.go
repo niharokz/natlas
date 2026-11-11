@@ -100,6 +100,7 @@ func Compile(where map[string]any, lookup Lookup) (Cond, error) {
 // MatchAll is a Cond that matches everything (an empty where).
 var MatchAll Cond = allCond(nil)
 
+// compileField compiles the conditions on one field ({op: value} or a bare value).
 func compileField(key string, info FieldInfo, raw any) ([]Cond, error) {
 	switch v := raw.(type) {
 	case map[string]any:
@@ -129,8 +130,10 @@ func compileField(key string, info FieldInfo, raw any) ([]Cond, error) {
 var validOps = map[string]bool{"eq": true, "ne": true, "in": true, "nin": true, "lt": true,
 	"lte": true, "gt": true, "gte": true, "empty": true, "contains": true}
 
+// allCond matches when every condition matches.
 type allCond []Cond
 
+// Match reports whether every condition matches.
 func (c allCond) Match(r Record) bool {
 	for _, s := range c {
 		if !s.Match(r) {
@@ -140,8 +143,10 @@ func (c allCond) Match(r Record) bool {
 	return true
 }
 
+// anyCond matches when one condition matches.
 type anyCond []Cond
 
+// Match reports whether one condition matches.
 func (c anyCond) Match(r Record) bool {
 	for _, s := range c {
 		if s.Match(r) {
@@ -151,17 +156,22 @@ func (c anyCond) Match(r Record) bool {
 	return false
 }
 
+// notCond inverts a condition.
 type notCond struct{ c Cond }
 
+// Match reports whether the condition does not match.
 func (c notCond) Match(r Record) bool { return !c.c.Match(r) }
 
+// emptyCond matches an empty (or non-empty) field.
 type emptyCond struct {
 	key  string
 	want bool
 }
 
+// Match reports whether the field's emptiness is as wanted.
 func (c emptyCond) Match(r Record) bool { return IsEmpty(r[c.key]) == c.want }
 
+// fieldCond compares a field with a value by the field's type.
 type fieldCond struct {
 	key     string
 	info    FieldInfo
@@ -169,6 +179,7 @@ type fieldCond struct {
 	operand any
 }
 
+// Match applies the operator.
 func (c fieldCond) Match(r Record) bool {
 	v := r[c.key]
 	switch c.op {
@@ -248,6 +259,7 @@ func compare(a, b any, info FieldInfo) int {
 	return cmpStr(Text(a), Text(b))
 }
 
+// indexOf is the position of s in list, or -1.
 func indexOf(list []string, s string) int {
 	for i, v := range list {
 		if v == s {
@@ -257,6 +269,7 @@ func indexOf(list []string, s string) int {
 	return -1
 }
 
+// toDate parses a date value with the field's layout.
 func toDate(v any, layout string) (time.Time, bool) {
 	s := Text(v)
 	if t, ok := dates.Resolve(s); ok {
@@ -265,6 +278,7 @@ func toDate(v any, layout string) (time.Time, bool) {
 	return dates.Parse(s, layout)
 }
 
+// cmpTime is -1, 0 or 1.
 func cmpTime(a, b time.Time) int {
 	switch {
 	case a.Before(b):
@@ -275,6 +289,7 @@ func cmpTime(a, b time.Time) int {
 	return 0
 }
 
+// cmpStr compares case-insensitively.
 func cmpStr(a, b string) int {
 	return strings.Compare(a, b)
 }

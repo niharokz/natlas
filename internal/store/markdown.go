@@ -34,12 +34,14 @@ type markdownDoc struct {
 	sections   []*mdSection
 }
 
+// mdSection is one "## " section: its raw text, title and body.
 type mdSection struct {
 	raw         string // "## Title\n…" up to the next section, as read
 	title, body string
 	dirty       bool
 }
 
+// parseMarkdown splits a note into front matter, intro and sections.
 func parseMarkdown(path string, data []byte) (*markdownDoc, error) {
 	d := &markdownDoc{path: path, crlf: bytes.Contains(data, []byte("\r\n"))}
 	text := strings.ReplaceAll(string(data), "\r\n", "\n")
@@ -108,8 +110,10 @@ func parseMarkdown(path string, data []byte) (*markdownDoc, error) {
 	return d, nil
 }
 
+// record is the section as {title, body}.
 func (s *mdSection) record() Record { return Record{"title": s.title, "body": s.body} }
 
+// frontRecord is the front matter plus the intro.
 func (d *markdownDoc) frontRecord() Record {
 	rec := Record{}
 	if d.front != nil {
@@ -119,6 +123,7 @@ func (d *markdownDoc) frontRecord() Record {
 	return rec
 }
 
+// check refuses collections other than sections (list) and front (record).
 func (d *markdownDoc) check(c *config.Collection) error {
 	if c.Path != "sections" && c.Path != "front" {
 		return fmt.Errorf("%s: a Markdown collection path is `sections` or `front`", filepath.Base(d.path))
@@ -158,6 +163,7 @@ func oneLine(v any) string {
 	return strings.Join(strings.Fields(s), " ")
 }
 
+// text is a value as a string.
 func text(v any) string {
 	s, _ := v.(string)
 	return strings.ReplaceAll(s, "\r\n", "\n")

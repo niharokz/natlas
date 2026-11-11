@@ -92,6 +92,7 @@ func sameOrigin(next http.HandlerFunc) http.HandlerFunc {
 
 // ── helpers ───────────────────────────────────────────────────────────────
 
+// writeJSON sends v as JSON with the status.
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
@@ -99,6 +100,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
+// fail sends {"error": msg} with the status.
 func fail(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]any{"error": msg})
 }
@@ -128,15 +130,21 @@ var errBadRequest = errors.New("bad request")
 // absPath matches absolute file paths so they can be trimmed to a file name.
 var absPath = regexp.MustCompile(`(/[\w.@-]+)+/([\w.@-]+)`)
 
+// publicMessage is an error's text with absolute paths cut down to file names.
 func publicMessage(err error) string {
 	return absPath.ReplaceAllString(err.Error(), "$2")
 }
 
+// badRequest is a client mistake (400) with its message.
 type badRequest string
 
-func (b badRequest) Error() string   { return string(b) }
+// Error returns the message.
+func (b badRequest) Error() string { return string(b) }
+
+// Is makes errors.Is(err, errBadRequest) true.
 func (b badRequest) Is(t error) bool { return t == errBadRequest }
 
+// decode reads a JSON body (1 MB max, JSON content type only) into into.
 func decode(r *http.Request, into any) error {
 	dec := json.NewDecoder(http.MaxBytesReader(nil, r.Body, 1<<20))
 	if err := dec.Decode(into); err != nil {
@@ -160,6 +168,7 @@ func (s *Server) target(w http.ResponseWriter, r *http.Request) (*config.Plugin,
 	return p, c, true
 }
 
+// writable answers 403 and returns false for a read-only collection.
 func writable(w http.ResponseWriter, c *config.Collection) bool {
 	if c.ReadOnly {
 		fail(w, http.StatusForbidden, c.Label+" is read-only")
@@ -187,6 +196,7 @@ func checkRev(doc store.Doc, c *config.Collection, id, rev string) (*store.Item,
 
 // ── read ──────────────────────────────────────────────────────────────────
 
+// appInfo handles GET /api/app: title, currency, locale, user, plugin definitions.
 func (s *Server) appInfo(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"title": s.App.Title, "currency": s.App.Currency, "locale": s.App.Locale,
@@ -194,12 +204,14 @@ func (s *Server) appInfo(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// groupOut is one list group in GET /api/p/{p}/{c}.
 type groupOut struct {
 	Label     string   `json:"label"`
 	Collapsed bool     `json:"collapsed"`
 	IDs       []string `json:"ids"`
 }
 
+// list handles GET /api/p/{p}/{c}: sorted records, groups, options, note.
 func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 	p, c, ok := s.target(w, r)
 	if !ok {
@@ -304,6 +316,7 @@ func options(c *config.Collection, items []*store.Item) map[string][]string {
 
 // ── write ─────────────────────────────────────────────────────────────────
 
+// create handles POST /api/p/{p}/{c}: a new record (optional id and position).
 func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 	p, c, ok := s.target(w, r)
 	if !ok || !writable(w, c) {
@@ -344,6 +357,7 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{"record": decorate(c, created)})
 }
 
+// update handles PATCH /api/p/{p}/{c}/{id}: changed fields, checked against rev.
 func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	p, c, ok := s.target(w, r)
 	if !ok || !writable(w, c) {
@@ -378,6 +392,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"record": decorate(c, after), "before": before.Rec})
 }
 
+// remove handles DELETE /api/p/{p}/{c}/{id}: returns what undo needs.
 func (s *Server) remove(w http.ResponseWriter, r *http.Request) {
 	p, c, ok := s.target(w, r)
 	if !ok || !writable(w, c) {
@@ -404,8 +419,10 @@ func (s *Server) remove(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": gone.Rec, "id": gone.ID, "at": indexOf(gone)})
 }
 
+// indexOf is the record's position in its file.
 func indexOf(it *store.Item) int { return store.Index(it) }
 
+// action handles POST …/{id}/do/{action}: runs a plugin action (set or move_to).
 func (s *Server) action(w http.ResponseWriter, r *http.Request) {
 	p, c, ok := s.target(w, r)
 	if !ok || !writable(w, c) {
@@ -451,6 +468,7 @@ func (s *Server) action(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// findAction returns the collection's action with this id, or nil.
 func findAction(c *config.Collection, id string) *config.Action {
 	for _, a := range c.Actions {
 		if a.ID == id {
@@ -534,6 +552,7 @@ func askedValues(c *config.Collection, act *config.Action, asked map[string]any,
 	return vals, nil
 }
 
+// bulk handles POST …/bulk: one action or one set of values on many records, one save.
 func (s *Server) bulk(w http.ResponseWriter, r *http.Request) {
 	p, c, ok := s.target(w, r)
 	if !ok || !writable(w, c) {
@@ -608,6 +627,7 @@ func (s *Server) bulk(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"results": results})
 }
 
+// move handles POST …/{id}/move: swaps a record with its neighbour (order: manual).
 func (s *Server) move(w http.ResponseWriter, r *http.Request) {
 	p, c, ok := s.target(w, r)
 	if !ok || !writable(w, c) {
