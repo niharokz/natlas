@@ -10,6 +10,7 @@
 # KEY_DIR      folder with natlas.jks + keystore.env (gtlbrunner: keys/natlas, read-only)
 #              keystore.env: NATLAS_KEYSTORE_PASSWORD=…  [NATLAS_KEY_ALIAS=natlas]  [NATLAS_KEY_PASSWORD=…]
 # Result: dist/release/natlas-<version>.apk + SHA256SUMS
+# -buildvcs=false: the version comes from VERSION; git stamping fails on a checkout owned by another user
 set -euo pipefail
 cd "$(dirname "$0")/.."
 MODE=${1:-ci}
@@ -17,7 +18,7 @@ C=${BUILD_CACHE:-/build-cache}
 KEY_DIR=${KEY_DIR:-/keys}
 OUT=dist/release
 export HOME=$C/home GRADLE_USER_HOME=$C/gradle ANDROID_USER_HOME=$C/android \
-       GOPATH=$C/go GOCACHE=$C/go-build GOFLAGS=-mod=vendor JAVA_TOOL_OPTIONS=-Duser.home=$C/home
+       GOPATH=$C/go GOCACHE=$C/go-build GOFLAGS="-mod=vendor -buildvcs=false" JAVA_TOOL_OPTIONS=-Duser.home=$C/home
 mkdir -p "$HOME" "$GRADLE_USER_HOME" "$ANDROID_USER_HOME" "$GOPATH" "$GOCACHE"
 T0=$SECONDS
 took() { printf '   (%ss)\n' $((SECONDS - T0)); T0=$SECONDS; }   # time of the step just finished
