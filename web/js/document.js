@@ -56,11 +56,28 @@ part('document', () => ({
       if (!src) return '';
       let html = this._mdCache.get(src);
       if (html === undefined) {
-        html = window.marked ? window.marked.parse(src, { gfm: true }) : src.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+        html = window.marked ? this.mdSafe(window.marked.parse(src, { gfm: true })) : src.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
         if (this._mdCache.size > 300) this._mdCache.clear();
         this._mdCache.set(src, html);
       }
       return html;
+    },
+    // mdSafe strips what raw HTML inside a note could run once it is on the page: scripts and
+    // frames, on* handlers, Alpine directives (x-*, @, :) and javascript:/data: links.
+    mdSafe(html) {
+      const t = document.createElement('template');
+      t.innerHTML = html;
+      for (const el of t.content.querySelectorAll('script, style, iframe, frame, object, embed, form, link, meta, base, template')) el.remove();
+      for (const el of t.content.querySelectorAll('*')) {
+        for (const a of [...el.attributes]) {
+          const n = a.name.toLowerCase(), v = a.value.replace(/[\s\u0000-\u001f]/g, '').toLowerCase();
+          const code = n.startsWith('on') || n.startsWith('x-') || n.startsWith('@') || n.startsWith(':') || n === 'srcdoc';
+          const url = ['href', 'src', 'xlink:href', 'action', 'formaction', 'poster'].includes(n) &&
+            /^(javascript|vbscript|data):/.test(v) && !(n === 'src' && v.startsWith('data:image/'));
+          if (code || url) el.removeAttribute(a.name);
+        }
+      }
+      return t.innerHTML;
     },
     // mdEnhance runs after the HTML is in place: callouts, wide tables, outside links, diagrams.
     mdEnhance(el) {

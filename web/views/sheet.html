@@ -8,7 +8,7 @@
             </header>
             <p class="error" x-show="sheet.error" x-text="sheet.error"></p>
             <p class="conflict" x-show="sheet.conflict">
-              This record changed elsewhere while you were editing (probably Taskmaster).
+              This record changed elsewhere while you were editing (another app or a nightly job).
               <button type="button" @click="reloadSheet()">Reload it</button>
             </p>
 

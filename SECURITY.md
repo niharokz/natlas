@@ -19,7 +19,7 @@ Only the latest release is supported. Update with
 
 See "Security notes" in `README.md`. In short: single user, PBKDF2 password
 hash, signed `__Host-` session cookie bound to the password (12 h, or until
-logout on a browser given the device key), a 7-day IP ban after 5 failed logins, same-origin JSON writes, strict CSP and security headers, and a
+logout on a browser given the device key), a 7-day IP ban after 5 failed logins (checked one at a time), a read-only demo login that can never obtain an owner session, sanitised Markdown, same-origin JSON writes, strict CSP and security headers, and a
 non-root, read-only, capability-free container that can only write to your
 data folder.
 

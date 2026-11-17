@@ -192,7 +192,10 @@ func writeDemo(dir string) (int, error) {
 		if _, err := os.Stat(dst); err == nil {
 			continue
 		}
-		b, _ := fs.ReadFile(examples.Data, "data/"+e.Name())
+		b, err := fs.ReadFile(examples.Data, "data/"+e.Name())
+		if err != nil {
+			return n, err
+		}
 		if err := os.WriteFile(dst, b, 0o644); err != nil {
 			return n, err
 		}

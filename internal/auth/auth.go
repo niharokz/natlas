@@ -48,6 +48,7 @@ type Auth struct {
 	cookie   string // session cookie name
 	device   string // device cookie name
 	bans     *Bans
+	loginMu  sync.Mutex // one credential check at a time, so a burst cannot outrun the failure count
 	mu       sync.Mutex
 	failures map[string][]time.Time // private ip -> recent failed attempts (30 min lockout)
 }
@@ -265,8 +266,8 @@ func (a *Auth) blocked(w http.ResponseWriter, ip string) bool {
 }
 
 // failed records a wrong password or device key and builds the reply text.
+// Callers hold loginMu, then wait failDelay after releasing it.
 func (a *Auth) failed(ip, what string) string {
-	time.Sleep(failDelay)
 	msg := "Wrong " + what
 	if Bannable(ip) {
 		left, banned := a.bans.Fail(ip, "wrong "+what)
@@ -305,10 +306,21 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"username": a.s.DemoUsername, "demo": true})
 		return
 	}
-	if !a.check(body.Username, body.Password) {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": a.failed(ip, "username or password")})
+	// One check at a time, and the failure is counted before the next check starts:
+	// parallel guesses cannot all slip in ahead of the ban.
+	a.loginMu.Lock()
+	if a.blocked(w, ip) {
+		a.loginMu.Unlock()
 		return
 	}
+	if !a.check(body.Username, body.Password) {
+		msg := a.failed(ip, "username or password")
+		a.loginMu.Unlock()
+		time.Sleep(failDelay)
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": msg})
+		return
+	}
+	a.loginMu.Unlock()
 	a.mu.Lock()
 	delete(a.failures, ip)
 	a.mu.Unlock()
@@ -321,15 +333,18 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 // Device handles POST /api/device {key} (logged in): with the right
 // NATLAS_DEVICE_KEY this browser stays signed in until logout, also after
 // the next login. A wrong key counts as a failed login. DELETE forgets it.
+// The demo login gets 403 for both methods.
 func (a *Auth) Device(w http.ResponseWriter, r *http.Request) {
+	// Owner only, checked before anything else: both branches below issue an owner
+	// session, which the demo login (or the phone token) must never receive.
+	if s, ok := a.session(r); !ok || s.demo || a.s.Local {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Not for the demo login"})
+		return
+	}
 	if r.Method == http.MethodDelete {
 		a.setDevice(w, false)
 		a.setSession(w, false)
 		writeJSON(w, http.StatusOK, map[string]bool{"remembered": false})
-		return
-	}
-	if a.IsDemo(r) {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Not for the demo login"})
 		return
 	}
 	ip := a.ClientIP(r)
@@ -345,10 +360,19 @@ func (a *Auth) Device(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Bad request"})
 		return
 	}
-	if subtle.ConstantTimeCompare([]byte(strings.TrimSpace(body.Key)), []byte(a.s.DeviceKey)) != 1 {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": a.failed(ip, "device key")})
+	a.loginMu.Lock()
+	if a.blocked(w, ip) {
+		a.loginMu.Unlock()
 		return
 	}
+	if subtle.ConstantTimeCompare([]byte(strings.TrimSpace(body.Key)), []byte(a.s.DeviceKey)) != 1 {
+		msg := a.failed(ip, "device key")
+		a.loginMu.Unlock()
+		time.Sleep(failDelay)
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": msg})
+		return
+	}
+	a.loginMu.Unlock()
 	a.bans.Clear(ip)
 	a.setDevice(w, true)
 	a.setSession(w, true)

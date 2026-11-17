@@ -1,6 +1,6 @@
 # Subscriptions: recurring bills and renewals.
 #
-# Taskmaster's subscription_update.py runs every night: it moves a passed
+# Kronos's subscription_update job runs every night: it moves a passed
 # next_due_date forward by one cycle and, on the due day, adds a pending
 # "Subscription due: <name>" event - mark that event Done in Events.
 
@@ -14,7 +14,7 @@ collections:
     label: Subscriptions
     path: subscriptions
     id_from: name
-    note: "Due dates move forward automatically each night (Taskmaster)."
+    note: "Due dates move forward automatically each night (Kronos)."
 
     fields:
       - { key: name, type: text, required: true }
@@ -44,7 +44,7 @@ collections:
       - { id: reactivate, label: Reactivate, icon: "↺", set: { status: active }, when: { status: cancelled } }
 
     agenda:
-      # due today shows up through Taskmaster's pending event, like the Telegram agenda
+      # due today shows up through Kronos's pending event, like the daily agenda
       - { section: overdue, date: next_due_date, where: { status: active, next_due_date: { lt: today } } }
       - { section: upcoming, date: next_due_date, where: { status: active, next_due_date: { gt: today, lte: today+7 } } }
 

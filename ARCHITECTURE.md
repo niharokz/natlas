@@ -149,7 +149,7 @@ browser ──► recoverer ─► accessLog ─► auth.Guard (banned IP → 40
 | `internal/merge` | Syncthing conflict copies (`<stem>.sync-conflict-YYYYMMDD-HHMMSS-XXXXXXX<ext>`). `Scan` merges each copy into its file record by record through `store.File.Change`: records only in the copy are appended, records that differ keep the file's version and the copy's version is queued in `<data>/.natlas/conflicts.yml` (stable `conflictID`), then the copy is deleted. Files only read by read-only collections are skipped (their writer owns them). `List` / `Resolve(id, kept|other)` back the Today card and its dialog. |
 | `internal/store/upsert.go` | `Upserter` (YAML docs): set fields on the record matching a key (the date) or insert a new one in key order; one parse, one write for a whole batch. Unchanged input means no write. |
 | `internal/api/layout.go` | `GET/PUT /api/layout`: `layout.yml` in the state dir (menu order, hidden, Today blocks `agenda` / `glance` / `list` / `note`). Read through `fit()`: unknown plugins dropped, new ones appended, broken blocks skipped. `{reset:true}` deletes the file. `Server.LayoutFile == ""` (demo) = defaults, not editable. `Server.ReadOnly` (demo) turns every non-GET route into 403. |
-| `internal/dates` | `Today()` in the container's TZ; parsing with a Go layout (ISO is always accepted too); tokens such as `today+7`; `CycleDays`, using the same rules as Taskmaster's `advance()`; `NextAnniversary`, where 29 Feb falls back to 28 Feb as in Taskmaster's `daily_update.py`; `Clock` normalises `6:30pm` / `18:30` to `HH:MM` (a bare `8` or a dotted `12.10` without am/pm is not a time). |
+| `internal/dates` | `Today()` in the container's TZ; parsing with a Go layout (ISO is always accepted too); tokens such as `today+7`; `CycleDays`, using the same rules as Kronos's `advance()`; `NextAnniversary`, where 29 Feb falls back to 28 Feb as in Taskmaster's `daily_update.py`; `Clock` normalises `6:30pm` / `18:30` to `HH:MM` (a bare `8` or a dotted `12.10` without am/pm is not a time). |
 | `web` | Embeds the UI. `GET /` is the public about page (`landing.html` + `landing.css`, no JavaScript); `GET /app` is the app (`index.html` with its `{{> views/…}}` parts expanded by `render`); `/app/` redirects. `{{VERSION}}` (a hash of all web files) busts caches; `{{RELEASE}}` is the binary version; `{{TITLE}}` is HTML-escaped; `{{DEMO}}` is the demo-login hint. `/assets/` refuses directory listings, `.go` files and `views/`. Generates the PWA manifest (`start_url` and `id` `/app`), with one shortcut per plugin. `NATLAS_WEB_DIR` serves the files from disk during development. |
 
 ## 6. Storage and API
@@ -163,7 +163,7 @@ browser ──► recoverer ─► accessLog ─► auth.Guard (banned IP → 40
 - **Create.** The new mapping gets `id` first, then the fields in schema order. It goes at `new_at` (end or start), or at an explicit index (used by undo-delete).
 - **Writing values.** `valueNode()` single-quotes any string that matches PyYAML's implicit resolvers (bool, int including sexagesimal, float, null, timestamp, merge). Whole floats are written as ints (`1200`, not `1200.0`).
 - **Output.** The file is encoded with a 2-space indent, then `restyle()` puts back what yaml.v3 cannot keep: top-level lists that were written unindented (`key:\n- a`, per key, found at parse time) stay unindented, and one-line rows written `- { a: 1 }` keep the inner spaces. New rows copy flow style from their siblings (`matchStyle`: lists inline, strings double-quoted).
-- **`id_field: none`.** For files another app owns (Rahi's bookmarks and locations): ids are only derived (`slug(id_from)`), never written on create or first edit, and empty fields are not written either. YAML lists only.
+- **`id_field: none`.** For files another app owns (a launcher's or widget app's bookmarks and locations): ids are only derived (`slug(id_from)`), never written on create or first edit, and empty fields are not written either. YAML lists only.
 
 ### Markdown (`store/markdown.go`, `format: markdown`)
 
@@ -249,7 +249,7 @@ icons/          favicon, touch and PWA icons, icon.svg
 | `js/lists.js` | list screens: search, filters, groups, summary, display formatting, dates. Functions: `activeFilterCount`, `clearFilters`, `visibleRecords`, `groupedRecords`, `isCollapsed`, `toggleGroup`, `summaryRows`, `field`, `fieldLabel`, `visibleFields`, `subtitle`, `badges`, `isMuted`, `display`, `fmtField`, `text`, `money`, `parseDate`, `iso`, `daysFromToday`, `relDays`, `fmtDate`. |
 | `js/interact.js` | gestures (swipe, long-press), selection and bulk edits, badge menus, one-tap actions, the ask dialog. Functions: `pressStart`, `pressMove`, `pressEnd`, `pressCancel`, `onContextMenu`, `rowClick`, `toggleSelect`, `clearSelection`, `selectedCount`, `bulkActions`, `bulkFields`, `bulkAction`, `bulkSet`, `_bulk`, `openMenu`, `pickMenu`, `optionsFor`, `primaryAction`, `runAction`, `_doAction`, `patch`, `_changedBack`, `afterChange`, `fail`, `quickAdd`, `_delete`, `openAsk`, `submitAsk`. |
 | `js/calendar.js` | month / week / schedule view for plugins with `view: calendar`. Functions: `isCalendar`, `loadCalendar`, `calLoaded`, `calNotes`, `calAll`, `calEvents`, `calCalendars`, `toggleCal`, `calByDay`, `_d`, `_shift`, `_weekStart`, `calWeekdays`, `calDay`, `calMonth`, `calMonthDays`, `calSub`, `calWeek`, `calSchedule`, `calPicked`, `calTitle`, `calSetView`, `calMove`, `calToday`, `calPick`, `calDateLabel`, `calTime`, `calWhen`, `calCatClass`, `calWritable`, `calCanAdd`, `calNew`, `calOpen`, `calTouch`, `linkFor`. |
-| `js/document.js` | a Markdown note as numbered sections (`view: document`): contents, edit, move, Mermaid. Functions: `isDocument`, `docColl`, `docLoaded`, `docAll`, `docFront`, `docSections`, `docGo`, `docSpy`, `docEdit`, `docEditFront`, `docAdd`, `docMeta`, `md`, `mdEnhance`, `loadMermaid`, `_dark`, `drawDiagrams`, `redrawDiagrams`. |
+| `js/document.js` | a Markdown note as numbered sections (`view: document`): contents, edit, move, Mermaid. Functions: `isDocument`, `docColl`, `docLoaded`, `docAll`, `docFront`, `docSections`, `docGo`, `docSpy`, `docEdit`, `docEditFront`, `docAdd`, `docMeta`, `md`, `mdSafe`, `mdEnhance`, `loadMermaid`, `_dark`, `drawDiagrams`, `redrawDiagrams`. |
 | `js/charts.js` | charts over a dated list (`charts:`, Health → Daily): Today, Trends, Sleep, Body tabs. Functions: `isCharts`, `chShowList`, `chTabs`, `chSetTab`, `chLoadGoals`, `chDays`, `chNum`, `chGoal`, `chLast`, `chLatest`, `chRange`, `chAvg`, `chShift`, `chEnd`, `chFmt`, `chTick`, `chDay`, `chWhen`, `chRings`, `chRingSVG`, `chTiles`, `chSpark`, `chWeek`, `chDelta`, `chTrendMetrics`, `chCurMetric`, `chSpan`, `chBuckets`, `chTrendHTML`, `chTrendStats`, `chScale`, `chFrame`, `chBarsHTML`, `chLineHTML`, `chPick`, `chLeave`, `esc`, `chSleep`, `chNights`, `chNightTip`, `chSleepAxis`, `chSleepStats`, `chBodyCards`, `chSigned`. |
 | `js/sheet.js` | the edit form (new / edit / read-only), toasts and undo. Functions: `openRecord`, `openNew`, `_formValues`, `_showSheet`, `closeSheet`, `closeSheetQuiet`, `sheetClosed`, `sheetTitle`, `isLocked`, `inputType`, `otherFields`, `sheetWide`, `sheetActions`, `saveSheet`, `reloadSheet`, `deleteRecord`, `moveRecord`, `toast`, `dropToast`, `undo`. |
 | `js/phone.js` | the Android app (window.NatlasNative): settings page (#/phone), sync conflicts. Functions: `nativeCall`, `loadPhone`, `setPhone`, `phoneToggle`, `setMotion`, `motionOn`, `showLog`, `onNative`, `loadConflicts`, `openConflicts`, `curConflict`, `resolveConflict`. |
@@ -265,7 +265,7 @@ icons/          favicon, touch and PWA icons, icon.svg
 - **Demo.** `/api/me` and the login reply carry `demo`; the app marks every collection read-only (no FAB, quick add, Save, actions), hides agenda buttons and shows a banner. The server refuses writes anyway.
 - **Rendering** comes from the plugin definition: `list.title`, `subtitle`, `badges`, `search`, `filters`; `actions` with `primary`; `quick_add`; `summary`; `link`.
 - **Calendar** (`view: calendar`, `js/calendar.js`): all collections flattened (`calAll`) into entries with `date`, `end`, `time`, `cat` (CSS `cat-*`) and `cal`; `calByDay` buckets them. Month (6×7; colour bars on phones), Week, Schedule (90 days at a time). Tap a day to select, again (or `+`, FAB) to add. View and hidden calendars in localStorage (`natlas_cal_view`, `natlas_cal_hidden`).
-- **Document** (`view: document`, `js/document.js`): `front` record + `sections` list; sticky contents from 1100 px (drawer below), hero card, numbered sections, `docSpy` scroll highlight. `md()` renders with marked (GFM) and caches; `mdEnhance()` adds callouts (`> [!kind]`), table wrappers, external-link targets and Mermaid boxes; `drawDiagrams()` loads mermaid once with `securityLevel: 'strict'` and nss colours, re-rendered on theme change.
+- **Document** (`view: document`, `js/document.js`): `front` record + `sections` list; sticky contents from 1100 px (drawer below), hero card, numbered sections, `docSpy` scroll highlight. `md()` renders with marked (GFM), passes the HTML through `mdSafe()` (drops scripts, frames, `on*` handlers, Alpine `x-*`/`@`/`:` attributes and `javascript:`/`data:` links, so raw HTML in a note cannot run code) and caches; `mdEnhance()` adds callouts (`> [!kind]`), table wrappers, external-link targets and Mermaid boxes; `drawDiagrams()` loads mermaid once with `securityLevel: 'strict'` and nss colours, re-rendered on theme change.
 - **Gestures** (`js/interact.js`): rows use `touch-action: pan-y`; a horizontal drag over 80 px runs the primary action (right) or opens the form (left); holding 480 ms selects.
 - **Alpine gotchas.** Alpine *calls* a function an expression evaluates to: never `x-show="obj.fn"`, store a boolean (see `toast.hasUndo`). Templates use optional chaining and keep `sheet.coll` set after closing so teardown never evaluates against null.
 - **Styling.** Only `--nss-*` tokens. `vendor/nss.min.css` is a subset of nss 3.0 (tokens, base, typography, code, tables, forms, interactive, a11y); its shared field rule hides the select arrow, so `css/lists.css` puts it back.
@@ -345,7 +345,7 @@ The APK is built only in Docker, by **gtlbrunner** (a dockerised GitLab runner o
 | Path | Role |
 |---|---|
 | `VERSION` | `X.Y.Z`; the tag must be `vX.Y.Z` |
-| `docker/builder/Dockerfile` | image `natlas-builder:<tag>`: JDK 17, Android SDK 34 + build-tools 34.0.0, Go 1.24; no source, no keys |
+| `docker/builder/Dockerfile` | image `natlas-builder:<tag>`: JDK 17, Android SDK 34 + build-tools 34.0.0, Go 1.24.7 (`GO_VERSION`; bump together with the image tag); no source, no keys |
 | `scripts/build-in-container.sh [ci\|quick\|debug]` | runs from the source root inside the image: Go vet + tests, `libnatlas.so` for arm64-v8a / armeabi-v7a / x86_64, Gradle unit tests + `assembleRelease`, `apksigner verify`, then `dist/release/natlas-X.Y.Z.apk` + `SHA256SUMS`. Caches under `$BUILD_CACHE` (home, Gradle, Android, Go). Key from `$KEY_DIR`: `natlas.jks` + `keystore.env` (only `NATLAS_KEYSTORE_PASSWORD`, `NATLAS_KEY_ALIAS`, `NATLAS_KEY_PASSWORD` are read, without evaluating the file). Never uploads. |
 | `scripts/upload-release.sh` | CI only: uploads `natlas-X.Y.Z.apk` as `natlas-vX.Y.Z.apk` and `SHA256SUMS` to the generic package `natlas/vX.Y.Z` (`CI_JOB_TOKEN`), writes `release-notes.md` from the CHANGELOG section |
 | `scripts/check-version.sh [vX.Y.Z]` | VERSION is X.Y.Z, CHANGELOG has `## X.Y.Z - date`, the tag matches |
@@ -418,6 +418,7 @@ middleware.go — handlers wrapped around every request: headers, access log, pa
 | `securityHeaders` | Adds browser protections to every response. |
 | type `statusWriter` | Remembers the response status for the access log. |
 | `statusWriter.WriteHeader` | Records the status, then writes it. |
+| `statusWriter.Unwrap` | Lets http.ResponseController reach the real writer (flush, deadlines). |
 | `accessLog` | Records every change (and every failed request) with the client IP - never request bodies, cookies or query strings. |
 | `recoverer` | Turns a panic in one request into a logged 500 instead of a dropped connection. |
 
@@ -491,7 +492,7 @@ Package api is the HTTP layer: one generic set of routes serves every plugin, dr
 | type `actionBrief` | Is an action button on an agenda entry. |
 | type `widgetOut` | Is one number on the Today screen. |
 | type `statsOut` | Is one plugin's numbers on the Today screen. |
-| `Server.dashboard` | Builds the Today screen: agenda sections (same rules as Taskmaster's daily agenda) and a row of numbers per plugin. |
+| `Server.dashboard` | Builds the Today screen: agenda sections (same rules as Kronos's daily agenda) and a row of numbers per plugin. |
 | `daysOr` | Is *d, or 7 when unset. |
 | `agendaEntry` | Turns a record matched by an agenda rule into an agenda item. |
 | `widgetValue` | Computes a widget (count, sum, monthly…) over the records. |
@@ -602,9 +603,9 @@ Package auth is single-user login: a signed session cookie (HMAC-SHA256, no serv
 | `Auth.hasDevice` | Reports whether the browser holds a valid device mark. |
 | `Auth.setDevice` | Sets (on) or clears the device-mark cookie. |
 | `Auth.blocked` | Answers a banned or locked-out address; true when it did. |
-| `Auth.failed` | Records a wrong password or device key and builds the reply text. |
-| `Auth.Login` | Handles POST /api/login {username, password}. |
-| `Auth.Device` | Handles POST /api/device {key} (logged in): with the right NATLAS_DEVICE_KEY this browser stays signed in until logout, also after the next … |
+| `Auth.failed` | Records a wrong password or device key and builds the reply text. Callers hold `loginMu`, then wait `failDelay` after releasing it. |
+| `Auth.Login` | Handles POST /api/login {username, password}. Credential checks run one at a time under `loginMu` (blocked → check → count the failure), so parallel guesses cannot outrun the ban. |
+| `Auth.Device` | Handles POST /api/device {key} and DELETE /api/device. Owner sessions only: the demo login and the phone token get 403 before either branch (both issue an owner session). A wrong key counts as a failed login, under `loginMu`. |
 | `Auth.check` | Compares credentials without leaking which part was wrong or how much of it matched. |
 | `Auth.checkDemo` | Is check for the demo login (public credentials, so no failure count). |
 | `Auth.Logout` | Handles POST /api/logout. |
@@ -917,6 +918,7 @@ Package web serves the browser app: index.html, CSS, JS, icons, the service work
 
 ## Changelog
 
+- **1.0.3 hotfix 2 (2026-11-16).** Security: `Auth.Device` refuses the demo login before the DELETE branch (it used to hand a demo session an owner cookie); `Auth.Login` / `Auth.Device` serialise credential checks with `loginMu` so a parallel burst cannot exceed `NATLAS_MAX_FAILURES`; `mdSafe()` sanitises rendered Markdown. `statusWriter.Unwrap`; `writeDemo` reports a read error; `Bans.Clear` logs a failed save. Server image and CI `test` job build with Go 1.26 (1.24 is out of support; `go.mod` stays `go 1.24`), CI check jobs on `alpine:3`, release job on `gitlab-org/cli` (release-cli is deprecated). "Taskmaster" wording replaced by Kronos / "another app or a nightly job" in messages, plugin help and comments. No API, file-format or config change.
 - **1.0.3 (2026-11-11).** APK builds only through gtlbrunner (`docker/builder/`, `scripts/build-in-container.sh`, `upload-release.sh`, `check-version.sh`, new `.gitlab-ci.yml`); `android/build.sh` + its env files removed. Web app split into `views/` (server-side includes), `js/` parts and `css/`. `cmd/natlas` split into four files; every Go function commented; this file covers every file and function. `.env.example` rewritten.
 - **1.0.2 (2026-10-30).** Demo login moved to the sign-in form; `scripts/release.sh`.
 - **1.0.1 (2026-10-30).** `plugins/bookmarks` + `plugins/locations` (`id_field: none`, `link: {url: "{url}"}`, `quick_add.url`, list-field tag options/filters); yaml `restyle` (compact lists, padded flow rows); `/api/layout` + `#/customize` + Today blocks; demo login (`x` sessions, demo mux, `ReadOnly`); landing page `{{DEMO}}`; `.gitlab-ci.yml` (test, apk on the `natlas-apk` runner, release vi…

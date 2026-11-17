@@ -200,7 +200,7 @@ part('interact', () => ({
     fail(e, c) {
       if (e.status === 401) return;
       if (e.status === 409) {
-        this.toast('Changed elsewhere (probably Taskmaster) - list reloaded, try again.', 'error');
+        this.toast('Changed elsewhere (another app or a nightly job) - list reloaded, try again.', 'error');
         this.reload(true);
         return;
       }

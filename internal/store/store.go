@@ -1,7 +1,7 @@
 // Package store reads and writes the plugin data files (YAML or CSV).
 //
-// Rules that keep Natlas a good neighbour to Taskmaster and the Telegram bot,
-// which write the same files:
+// Rules that keep Natlas a good neighbour to the other programs that write the
+// same files (Kronos nightly jobs, Omnimo, a launcher, Obsidian, Syncthing):
 //
 //   - Reading never writes. Records without an id get a deterministic one in
 //     memory; it is saved only when that record itself is edited.
@@ -47,7 +47,7 @@ type Item struct {
 // Errors the API turns into HTTP status codes.
 var (
 	ErrNotFound = errors.New("record not found - it may have been deleted or archived; reload the list")
-	ErrConflict = errors.New("this record was changed elsewhere (probably Taskmaster) since you opened it; reload and try again")
+	ErrConflict = errors.New("this record was changed elsewhere since you opened it (another app or a nightly job); reload and try again")
 	ErrExists   = errors.New("a record with this id already exists")
 	// ErrNoChange lets a Change callback finish without writing the file.
 	ErrNoChange = errors.New("no change")

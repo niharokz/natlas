@@ -51,7 +51,7 @@ type statsOut struct {
 }
 
 // dashboard builds the Today screen: agenda sections (same rules as
-// Taskmaster's daily agenda) and a row of numbers per plugin. A broken data
+// Kronos's daily agenda) and a row of numbers per plugin. A broken data
 // file shows as an error on its own plugin instead of breaking the page.
 func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 	agenda := map[string][]agendaItem{"overdue": {}, "today": {}, "upcoming": {}}

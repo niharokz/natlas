@@ -184,7 +184,9 @@ func (b *Bans) Clear(ip string) {
 	b.reload()
 	if _, ok := b.f.Failures[ip]; ok {
 		delete(b.f.Failures, ip)
-		b.save()
+		if err := b.save(); err != nil {
+			fmt.Fprintf(os.Stderr, "[auth] cannot save %s: %v\n", b.path, err)
+		}
 	}
 }
 

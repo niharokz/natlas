@@ -45,6 +45,9 @@ func (w *statusWriter) WriteHeader(code int) {
 	w.ResponseWriter.WriteHeader(code)
 }
 
+// Unwrap lets http.ResponseController reach the real writer (flush, deadlines).
+func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
 // accessLog records every change (and every failed request) with the client
 // IP - never request bodies, cookies or query strings.
 func accessLog(a *auth.Auth, next http.Handler) http.Handler {

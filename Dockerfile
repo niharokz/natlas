@@ -1,6 +1,6 @@
 # ── build ────────────────────────────────────────────────────────────────
 # Dependencies are vendored (vendor/), so the build needs no network access.
-FROM mirror.gcr.io/library/golang:1.24-alpine AS build
+FROM mirror.gcr.io/library/golang:1.26-alpine AS build
 WORKDIR /src
 COPY go.mod VERSION ./
 COPY vendor ./vendor

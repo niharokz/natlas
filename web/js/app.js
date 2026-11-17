@@ -1,7 +1,7 @@
 /*
  * Natlas web app - one Alpine component drives every screen.
  *
- * Nothing here knows about events, birthdays or inventory: the server sends
+ * Nothing here knows about events, calendars or inventory: the server sends
  * each plugin's definition (fields, list layout, actions) from plugin.yml and
  * the parts render it. Each file in js/ is one part, loaded in this order
  * (index.html), then merged here into the component `natlas`:

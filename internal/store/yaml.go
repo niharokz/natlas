@@ -22,7 +22,7 @@ const RecordID = "record"
 type yamlDoc struct {
 	path      string
 	root      *yaml.Node      // the top-level mapping
-	hadHeader bool            // file started with an `updated:` stamp (Taskmaster's convention)
+	hadHeader bool            // file started with an `updated:` stamp (Kronos's convention)
 	compact   map[string]bool // top-level lists written "key:\n- a" (no indent), as hand-kept files often are
 	padFlow   bool            // one-line rows written "- { a: 1 }" with spaces inside the braces
 }
@@ -53,7 +53,7 @@ func parseYAML(path string, data []byte) (*yamlDoc, error) {
 	default:
 		return nil, fmt.Errorf("%s: the top level must be a mapping (key: value)", filepath.Base(path))
 	}
-	// Taskmaster writes "updated: <stamp>" + blank line before the body. We
+	// Kronos writes "updated: <stamp>" + blank line before the body. We
 	// drop it while editing and write a fresh stamp on save.
 	if i := mapIndex(d.root, "updated"); i >= 0 {
 		d.hadHeader = true
@@ -413,7 +413,7 @@ func strNode(s string) *yaml.Node {
 }
 
 // valueNode builds a node for a plain value. Strings that a YAML 1.1 reader
-// (PyYAML, used by Taskmaster) would read as something else - dates, "65:30",
+// (PyYAML, Obsidian plugins) would read as something else - dates, "65:30",
 // "yes", "12" - are single-quoted, exactly like PyYAML's safe_dump does.
 func valueNode(v any) *yaml.Node {
 	switch x := v.(type) {

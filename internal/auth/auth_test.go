@@ -241,3 +241,57 @@ func TestDemoLogin(t *testing.T) {
 		t.Fatalf("device key for demo: %d", dw.Code)
 	}
 }
+
+// the demo login must never be able to turn itself into the owner
+func TestDemoCannotBecomeOwner(t *testing.T) {
+	s := settings()
+	s.DemoUsername, s.DemoPassword = "demo", "demo"
+	s.DeviceKey = strings.Repeat("k", 32)
+	a := New(s)
+	demo := login(a, "demo", "demo", "1.1.1.1")
+	for _, method := range []string{"DELETE", "POST"} {
+		r := httptest.NewRequest(method, "/api/device", strings.NewReader(`{"key":"`+s.DeviceKey+`"}`))
+		for _, c := range demo.Result().Cookies() {
+			r.AddCookie(c)
+		}
+		w := httptest.NewRecorder()
+		a.Require(http.HandlerFunc(a.Device)).ServeHTTP(w, r)
+		if w.Code != 403 || len(w.Result().Cookies()) != 0 {
+			t.Fatalf("%s /api/device as demo: %d, cookies %v", method, w.Code, w.Result().Cookies())
+		}
+	}
+	// the owner can still forget a device
+	own := login(a, "u", "correct horse", "1.1.1.1")
+	r := httptest.NewRequest("DELETE", "/api/device", nil)
+	for _, c := range own.Result().Cookies() {
+		r.AddCookie(c)
+	}
+	w := httptest.NewRecorder()
+	a.Require(http.HandlerFunc(a.Device)).ServeHTTP(w, r)
+	if w.Code != 200 || a.User(withCookie(w)) != "u" {
+		t.Fatalf("owner DELETE /api/device: %d", w.Code)
+	}
+}
+
+// a burst of parallel guesses is counted one by one: no more checks than MaxFailures
+func TestParallelGuessesAreCounted(t *testing.T) {
+	s := settings()
+	s.MaxFailures = 5
+	a := New(s)
+	codes := make(chan int, 40)
+	for i := 0; i < 40; i++ {
+		go func() { codes <- login(a, "u", "wrong", "8.8.4.4").Code }()
+	}
+	wrong := 0
+	for i := 0; i < 40; i++ {
+		if <-codes == 401 {
+			wrong++
+		}
+	}
+	if wrong != 5 {
+		t.Fatalf("%d guesses were checked, want 5 (the rest must be refused as banned)", wrong)
+	}
+	if login(a, "u", "correct horse", "8.8.4.4").Code != 403 {
+		t.Fatal("banned address could still log in")
+	}
+}

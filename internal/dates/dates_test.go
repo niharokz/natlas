@@ -15,7 +15,7 @@ func TestNextAnniversary(t *testing.T) {
 		{"1990-10-05", "2026-10-05", 0, 36},
 		{"0000-10-09", "2026-10-05", 4, 0},    // unknown year: no age
 		{"1995-01-25", "2026-10-05", 112, 32}, // next year
-		{"1996-02-29", "2027-02-27", 1, 31},   // leap day -> 28 Feb, like Taskmaster
+		{"1996-02-29", "2027-02-27", 1, 31},   // leap day -> 28 Feb, like Kronos
 	}
 	for _, c := range cases {
 		a, ok := NextAnniversary(c.value, d(c.today))

@@ -4,6 +4,12 @@ Version numbers restarted at **1.0.0** on 2026-10-20. Earlier releases are liste
 
 ## 1.0.3 - 2026-11-11
 
+- **Hotfix 2 (2026-11-16), security - update if the demo login is on.**
+  - A demo session could call `DELETE /api/device` and receive a full owner session. `/api/device` now answers 403 to the demo login for every method.
+  - Parallel wrong logins were all checked before the first failure was counted, so a burst could try far more than `NATLAS_MAX_FAILURES` passwords. Checks now run one at a time and each failure is counted before the next check.
+  - Raw HTML inside Markdown (Architecture sections, Today notes) is sanitised before display: no scripts, frames, event handlers, Alpine directives or `javascript:` links.
+  - Build: server image and CI use Go 1.26 (Go 1.24 no longer gets security fixes); the CI release job uses GitLab's `cli` image instead of the deprecated `release-cli`.
+  - Wording: "changed elsewhere" messages and plugin help no longer mention Taskmaster.
 - **APK builds move to a Docker GitLab runner (gtlbrunner).** A `vX.Y.Z` tag runs `release-files` inside the new `natlas-builder` image (`docker/builder/Dockerfile`) on your own runner (tag `natlas-app`), with the key mounted read-only; the APK and `SHA256SUMS` go to the package registry and the release. The same build runs by hand on the server (`./build.sh natlas` in gtlbrunner). No GitLab Runner on the host any more.
 - Removed `android/build.sh`, `android/Dockerfile`, `android/.env(.example)` and `android/scripts/`: the build is `scripts/build-in-container.sh` (`ci`, `quick`, `debug`), and the key with its password (`keystore.env`) lives only with the runner.
 - CI on every push: gofmt, vet and tests, `scripts/check-version.sh` (VERSION and CHANGELOG agree, tag matches), `scripts/check-public.sh` (no `.env`, `config/`, keys or secrets tracked).

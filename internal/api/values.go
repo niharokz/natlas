@@ -25,7 +25,7 @@ func (e fieldErrors) Error() string {
 // clean converts raw JSON input into stored values using the field types.
 // With full=true (create) every field is written - missing ones get their
 // default or null - so new records have the same shape as the rest of the
-// file (Taskmaster expects id/title/date/status/frequency/priority on every
+// file (Kronos expects id/title/date/status/frequency/priority on every
 // event). With full=false (edit) only the given fields are touched.
 func clean(c *config.Collection, in map[string]any, current store.Record, full bool) (store.Record, error) {
 	out := store.Record{}

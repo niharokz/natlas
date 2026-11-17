@@ -2,8 +2,8 @@
 // date fields are parsed, relative tokens like "today+7", repeat cycles and
 // yearly anniversaries.
 //
-// The cycle rules intentionally mirror Taskmaster's config/common.py
-// (advance / roll_forward), so Natlas and the nightly batch always agree on
+// The cycle rules intentionally mirror Kronos's cycle rules
+// (advance / roll forward), so Natlas and the nightly batch always agree on
 // what "monthly" or "84 days" means.
 package dates
 
@@ -77,7 +77,7 @@ func DaysBetween(a, b time.Time) int {
 	return int(b.Sub(a).Hours() / 24)
 }
 
-// ── cycles (same rules as Taskmaster's advance()) ─────────────────────────
+// ── cycles (same rules as Kronos's advance()) ─────────────────────────
 
 var namedCycles = map[string]struct {
 	n    int
@@ -126,7 +126,7 @@ type Anniversary struct {
 }
 
 // NextAnniversary computes the next occurrence of value ("YYYY-MM-DD").
-// 29 Feb falls back to 28 Feb in non-leap years, matching Taskmaster's
+// 29 Feb falls back to 28 Feb in non-leap years, matching Kronos's
 // daily_update.py so the agenda and the web UI agree.
 func NextAnniversary(value string, today time.Time) (Anniversary, bool) {
 	parts := strings.Split(strings.TrimSpace(value), "-")

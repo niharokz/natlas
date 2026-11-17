@@ -1,6 +1,6 @@
 # Health: daily data from the phone, race plan, race history, gym routine and profile.
 #
-# health.md can also feed a static health page generator (e.g. a Taskmaster
+# health.md can also feed a static health page generator (e.g. a Kronos
 # job), so keep the field names below stable if you use one.
 # Dates are stored as "27 Sep 2026" (format below) to keep that site unchanged.
 
