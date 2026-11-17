@@ -303,6 +303,7 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	if a.checkDemo(body.Username, body.Password) {
 		a.issue(w, a.s.DemoUsername, "x", a.xkey, a.shortLife())
+		log.Printf("[auth] demo login from %s", ip)
 		writeJSON(w, http.StatusOK, map[string]any{"username": a.s.DemoUsername, "demo": true})
 		return
 	}
@@ -327,6 +328,7 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 	a.bans.Clear(ip)
 	device := a.hasDevice(r)
 	a.setSession(w, device)
+	log.Printf("[auth] login ok from %s (remembered browser: %v)", ip, device)
 	writeJSON(w, http.StatusOK, map[string]any{"username": a.s.Username, "remembered": device})
 }
 
@@ -374,6 +376,7 @@ func (a *Auth) Device(w http.ResponseWriter, r *http.Request) {
 	}
 	a.loginMu.Unlock()
 	a.bans.Clear(ip)
+	log.Printf("[auth] device key accepted from %s: this browser is now remembered", ip)
 	a.setDevice(w, true)
 	a.setSession(w, true)
 	writeJSON(w, http.StatusOK, map[string]bool{"remembered": true})
@@ -409,6 +412,10 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 // Me handles GET /api/me.
 func (a *Auth) Me(w http.ResponseWriter, r *http.Request) {
 	user := a.User(r)
+	if user == "" { // a visitor learns nothing about the login setup
+		writeJSON(w, http.StatusOK, map[string]any{"authenticated": false, "local": a.s.Local})
+		return
+	}
 	sess, _ := a.session(r)
 	out := map[string]any{"authenticated": user != "", "username": user, "local": a.s.Local,
 		"remembered": sess.device, "device_key": a.s.DeviceKey != "" && !sess.demo, "session_hours": a.s.SessionHours, "demo": sess.demo}

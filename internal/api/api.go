@@ -75,6 +75,10 @@ func (s *Server) Register(mux *http.ServeMux) {
 func sameOrigin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			if site := r.Header.Get("Sec-Fetch-Site"); site != "" && site != "same-origin" && site != "none" {
+				fail(w, http.StatusForbidden, "cross-site request blocked") // the browser itself says it is foreign
+				return
+			}
 			if o := r.Header.Get("Origin"); o != "" {
 				if u, err := url.Parse(o); err != nil || u.Host != r.Host {
 					fail(w, http.StatusForbidden, "cross-site request blocked")

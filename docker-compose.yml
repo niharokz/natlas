@@ -35,6 +35,8 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    mem_limit: 512m                          # a runaway request cannot starve the host
+    pids_limit: 128
     networks:
       - proxy
     # No published port: your reverse proxy reaches natlas:8080 on the shared network.

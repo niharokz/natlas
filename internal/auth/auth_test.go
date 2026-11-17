@@ -295,3 +295,21 @@ func TestParallelGuessesAreCounted(t *testing.T) {
 		t.Fatal("banned address could still log in")
 	}
 }
+
+// a visitor without a session learns nothing about the login setup
+func TestMeHidesSetupFromVisitors(t *testing.T) {
+	s := settings()
+	s.DeviceKey = strings.Repeat("k", 32)
+	a := New(s)
+	w := httptest.NewRecorder()
+	a.Me(w, httptest.NewRequest("GET", "/api/me", nil))
+	body := w.Body.String()
+	for _, leak := range []string{"device_key", "session_hours", "username", "remembered"} {
+		if strings.Contains(body, leak) {
+			t.Fatalf("/api/me without a session leaks %q: %s", leak, body)
+		}
+	}
+	if !strings.Contains(body, `"authenticated":false`) {
+		t.Fatalf("unexpected body: %s", body)
+	}
+}

@@ -33,8 +33,12 @@ func main() {
 			fmt.Println("natlas", version)
 			return
 		case "check":
-			if _, err := load(); err != nil {
+			app, err := load()
+			if err != nil {
 				log.Fatalf("config check failed:\n%v", err)
+			}
+			for _, w := range app.settings.Warnings() {
+				log.Println("WARNING: " + w)
 			}
 			log.Println("config OK")
 			return

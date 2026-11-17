@@ -4,6 +4,13 @@ Version numbers restarted at **1.0.0** on 2026-10-20. Earlier releases are liste
 
 ## 1.0.3 - 2026-11-11
 
+- **Hotfix 3 (2026-11-17), hardening.**
+  - `natlas check` and the start-up log now warn about settings that weaken the login: a plain-text or short password, the demo login being on, no device key.
+  - Every successful login is logged with the address it came from (`[auth] login ok from …`), so `docker logs natlas | grep auth` shows who got in, not only who failed.
+  - `/api/me` tells a visitor without a session nothing about the login setup.
+  - Writes that the browser itself marks as coming from another site (`Sec-Fetch-Site`) are refused, on top of the existing Origin and JSON checks.
+  - The "blocked" page for banned addresses carries the same security headers as every other page.
+  - `docker-compose.yml`: `mem_limit: 512m`, `pids_limit: 128`.
 - **Hotfix 2 (2026-11-16), security - update if the demo login is on.**
   - A demo session could call `DELETE /api/device` and receive a full owner session. `/api/device` now answers 403 to the demo login for every method.
   - Parallel wrong logins were all checked before the first failure was counted, so a burst could try far more than `NATLAS_MAX_FAILURES` passwords. Checks now run one at a time and each failure is counted before the next check.

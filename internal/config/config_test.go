@@ -127,3 +127,18 @@ collections:
 		}
 	}
 }
+
+// weak-but-working login settings are reported
+func TestSettingsWarnings(t *testing.T) {
+	weak := &Settings{Username: "u", Password: "short", DemoUsername: "demo", DemoPassword: "demo", TrustProxy: true}
+	if got := len(weak.Warnings()); got != 4 {
+		t.Fatalf("weak settings: %d warnings, want 4: %v", got, weak.Warnings())
+	}
+	strong := &Settings{Username: "u", PasswordHash: "pbkdf2-sha256:600000:x:y", DeviceKey: "k", TrustProxy: true}
+	if w := strong.Warnings(); len(w) != 0 {
+		t.Fatalf("strong settings warned: %v", w)
+	}
+	if w := (&Settings{Local: true}).Warnings(); len(w) != 0 {
+		t.Fatalf("phone mode warned: %v", w)
+	}
+}

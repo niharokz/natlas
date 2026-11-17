@@ -35,11 +35,12 @@ func serve() {
 	store.LockDir = s.LockDir
 	if s.Local {
 		log.Printf("phone mode: data %s, merging conflicts: %v", app.app.DataDir, s.Main)
-	} else if s.PasswordHash == "" {
-		log.Println("tip: store a hash instead of the plain password - see `natlas hash-password` in the README")
 	}
 	if !s.CookieSecure && !s.Local {
 		log.Println("WARNING: NATLAS_COOKIE_SECURE=false - only use this for plain-http testing")
+	}
+	for _, w := range s.Warnings() {
+		log.Println("WARNING: " + w)
 	}
 	warnMissingFiles(app.app)
 
@@ -80,7 +81,7 @@ func serve() {
 
 	srv := &http.Server{
 		Addr:              s.Addr,
-		Handler:           recoverer(accessLog(authn, authn.Guard(securityHeaders(s.CookieSecure, handler)))),
+		Handler:           recoverer(accessLog(authn, securityHeaders(s.CookieSecure, authn.Guard(handler)))), // headers also on ban pages
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,

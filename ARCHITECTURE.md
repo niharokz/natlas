@@ -447,7 +447,7 @@ Package api is the HTTP layer: one generic set of routes serves every plugin, dr
 |---|---|
 | type `Server` | Holds what every handler needs. |
 | `Server.Register` | Adds the API routes to mux. |
-| `sameOrigin` | Blocks cross-site writes: a changing request must be JSON (which a foreign page cannot send without CORS) and, when the browser says whe… |
+| `sameOrigin` | Blocks cross-site writes: a changing request must be JSON, must not carry `Sec-Fetch-Site: cross-site/same-site`, and its `Origin` (when sent) must be this host. |
 | `writeJSON` | Sends v as JSON with the status. |
 | `fail` | Sends {"error": msg} with the status. |
 | `failErr` | Maps store and validation errors to HTTP responses. |
@@ -609,7 +609,7 @@ Package auth is single-user login: a signed session cookie (HMAC-SHA256, no serv
 | `Auth.check` | Compares credentials without leaking which part was wrong or how much of it matched. |
 | `Auth.checkDemo` | Is check for the demo login (public credentials, so no failure count). |
 | `Auth.Logout` | Handles POST /api/logout. |
-| `Auth.Me` | Handles GET /api/me. |
+| `Auth.Me` | Handles GET /api/me. Without a session it answers only `{authenticated:false, local}`: a visitor learns nothing about the login setup. |
 | `Auth.LocalEntry` | Handles GET /local?t=<token> in the phone app: it turns the launch token into a cookie and opens the app (only paths under /app). |
 | `Auth.Local` | Reports whether this is the phone app. |
 | `sign` | Is base64url(HMAC-SHA256(key, payload)). |
@@ -667,6 +667,7 @@ Package config loads everything Natlas is told from outside the code: - Settings
 |---|---|
 | type `Settings` | Are read from environment variables. |
 | `Settings.Demo` | Is true when the read-only demo login is configured. |
+| `Settings.Warnings` | Lists settings that work but weaken the login (plain or short password, demo login on, no device key, proxy headers not trusted); printed at start and by `natlas check`. |
 | `LoadSettings` | Reads Settings from the environment and reports every missing required value at once. |
 | `envOr` | Is the variable, or fallback when empty. |
 | `envInt` | Is the variable as an int, or fallback. |
@@ -918,6 +919,7 @@ Package web serves the browser app: index.html, CSS, JS, icons, the service work
 
 ## Changelog
 
+- **1.0.3 hotfix 3 (2026-11-17).** Hardening, no API or file-format change: `securityHeaders` now wraps `Auth.Guard` (ban pages carry CSP and friends); `sameOrigin` also refuses writes the browser marks `Sec-Fetch-Site` cross-site or same-site; `Auth.Me` reveals nothing without a session; successful logins, demo logins and accepted device keys are logged with the client IP; `Settings.Warnings` (start-up and `natlas check`); `docker-compose.yml` gains `mem_limit: 512m` and `pids_limit: 128`. Tests: `TestMeHidesSetupFromVisitors`, `TestSameOriginHonoursSecFetchSite`, `TestSettingsWarnings`.
 - **1.0.3 hotfix 2 (2026-11-16).** Security: `Auth.Device` refuses the demo login before the DELETE branch (it used to hand a demo session an owner cookie); `Auth.Login` / `Auth.Device` serialise credential checks with `loginMu` so a parallel burst cannot exceed `NATLAS_MAX_FAILURES`; `mdSafe()` sanitises rendered Markdown. `statusWriter.Unwrap`; `writeDemo` reports a read error; `Bans.Clear` logs a failed save. Server image and CI `test` job build with Go 1.26 (1.24 is out of support; `go.mod` stays `go 1.24`), CI check jobs on `alpine:3`, release job on `gitlab-org/cli` (release-cli is deprecated). "Taskmaster" wording replaced by Kronos / "another app or a nightly job" in messages, plugin help and comments. No API, file-format or config change.
 - **1.0.3 (2026-11-11).** APK builds only through gtlbrunner (`docker/builder/`, `scripts/build-in-container.sh`, `upload-release.sh`, `check-version.sh`, new `.gitlab-ci.yml`); `android/build.sh` + its env files removed. Web app split into `views/` (server-side includes), `js/` parts and `css/`. `cmd/natlas` split into four files; every Go function commented; this file covers every file and function. `.env.example` rewritten.
 - **1.0.2 (2026-10-30).** Demo login moved to the sign-in form; `scripts/release.sh`.

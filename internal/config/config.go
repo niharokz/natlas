@@ -63,6 +63,30 @@ type Settings struct {
 // Demo is true when the read-only demo login is configured.
 func (s *Settings) Demo() bool { return s.DemoUsername != "" && !s.Local }
 
+// Warnings lists settings that work but weaken the login (shown at start and by `natlas check`).
+func (s *Settings) Warnings() []string {
+	if s.Local {
+		return nil
+	}
+	var w []string
+	if s.PasswordHash == "" {
+		w = append(w, "NATLAS_PASSWORD is stored in plain text: use NATLAS_PASSWORD_HASH (natlas hash-password)")
+		if len(s.Password) < 12 {
+			w = append(w, "the password is shorter than 12 characters")
+		}
+	}
+	if s.Demo() {
+		w = append(w, "the demo login is ON: anyone can sign in to the sample data (unset NATLAS_DEMO_USERNAME to turn it off)")
+	}
+	if s.DeviceKey == "" {
+		w = append(w, "NATLAS_DEVICE_KEY is not set: no browser can be remembered, so the password is typed (and exposed) more often")
+	}
+	if !s.TrustProxy {
+		w = append(w, "NATLAS_TRUST_PROXY=false: behind a proxy every visitor shares the proxy's address, so one ban locks everyone out")
+	}
+	return w
+}
+
 // LoadSettings reads Settings from the environment and reports every missing
 // required value at once.
 func LoadSettings() (*Settings, error) {
